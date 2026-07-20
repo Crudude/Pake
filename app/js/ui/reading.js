@@ -30,7 +30,7 @@ export function renderReading(el, ctx) {
         return `
           <h3 class="group-title">${label} <span class="count-tag">${items.length}</span></h3>
           <div class="stack">${items.map(readingCard).join('')}</div>`;
-      }).join('') || '<p class="page-empty">Nothing here yet — add the book on her nightstand.</p>'}
+      }).join('') || '<p class="page-empty">Nothing here yet — add the book on the nightstand.</p>'}
     </div>`;
 
   el.querySelector('[data-form="add"]').addEventListener('submit', (e) => {

@@ -55,16 +55,41 @@ export function mondayOf(date = new Date()) {
   return noon;
 }
 
-const PARITY_NAMES = ['Even', 'Odd'];
+export const DEFAULT_PARITY_NAMES = ['Even', 'Odd'];
+
+// The two alternating weeks can be called anything (settings.parityNames,
+// synced in the save file). Slot 0 is the LEFT column's name; the
+// Swap toggle (parityLabelFlipped) still controls which internal parity
+// index sits in which slot.
+export function parityNames(settings) {
+  const custom = settings.parityNames || {};
+  return [
+    String(custom.even ?? '').trim() || DEFAULT_PARITY_NAMES[0],
+    String(custom.odd ?? '').trim() || DEFAULT_PARITY_NAMES[1],
+  ];
+}
+
+export function hasDefaultParityNames(settings) {
+  const [a, b] = parityNames(settings);
+  return a === DEFAULT_PARITY_NAMES[0] && b === DEFAULT_PARITY_NAMES[1];
+}
 
 export function parityLabel(parityIndex, settings) {
+  const names = parityNames(settings);
   return settings.parityLabelFlipped
-    ? PARITY_NAMES[1 - parityIndex]
-    : PARITY_NAMES[parityIndex];
+    ? names[1 - parityIndex]
+    : names[parityIndex];
+}
+
+// "Even weeks" reads right for the defaults; a custom name ("Week A",
+// "Blue") stands alone.
+export function parityPhrase(parityIndex, settings) {
+  const label = parityLabel(parityIndex, settings);
+  return hasDefaultParityNames(settings) ? `${label} weeks` : label;
 }
 
 // Left-to-right parity indexes for each day column. The left half is
-// always the one labelled "Even".
+// always the one carrying slot-0's name.
 export function columnOrder(settings) {
   return settings.parityLabelFlipped ? [1, 0] : [0, 1];
 }
@@ -74,9 +99,12 @@ const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
 
 export function weekHeadingParts(date, settings) {
   const monday = mondayOf(date);
+  const label = parityLabel(currentParity(date), settings);
   return {
     weekOf: `${monday.getDate()} ${MONTHS[monday.getMonth()]}`,
-    parityName: parityLabel(currentParity(date), settings),
+    parityName: label,
+    // "· odd week" for the defaults, "· Week A" verbatim for custom names.
+    parityHeading: hasDefaultParityNames(settings) ? `${label.toLowerCase()} week` : label,
   };
 }
 

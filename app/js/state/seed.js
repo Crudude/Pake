@@ -53,7 +53,7 @@ export function sampleData() {
   const grace = c('Grace Lam', 'monthly', [sess('Family', 'in-person', 'Family')],
     { schedulingNotes: 'Usually first week of the month, afternoons.' });
   const noor = c('Noor Malik', 'self', [sess('Individual', 'virtual', 'ACT')],
-    { schedulingNotes: 'Books herself through Jane, evenings mostly.' });
+    { schedulingNotes: 'Self-booking through Jane, evenings mostly.' });
 
   const iris = c('Iris Fontaine', 'biweekly', [sess('Individual', 'in-person', 'CBT')], {
     status: 'paused',

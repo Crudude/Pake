@@ -1,5 +1,6 @@
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 mod app;
+mod cadence;
 mod util;
 
 use tauri::Manager;
@@ -186,7 +187,35 @@ pub fn run_app() {
         ));
     }
 
+    // Cadence: decide BEFORE the app is built whether a signed update
+    // bundle replaces the embedded /app assets. Any failure falls back
+    // to the built-in copy — the updater must never brick the shell.
+    let mut context: tauri::Context<tauri::Wry> = tauri::generate_context!();
+    let cadence_identifier = context.config().identifier.clone();
+    let cadence_builtin_version = context.package_info().version.to_string();
+    let mut cadence_update_active: Option<String> = None;
+    if let Some((update_dir, version)) =
+        cadence::update::prepare(&cadence_identifier, &cadence_builtin_version)
+    {
+        match cadence::update::load_files(&update_dir) {
+            Ok(files) => {
+                let fallback = context.set_assets(Box::new(cadence::update::EmptyAssets));
+                let _ = context.set_assets(Box::new(cadence::update::OverlayAssets::new(
+                    files, fallback,
+                )));
+                eprintln!("[cadence] serving app update {version}");
+                cadence_update_active = Some(version);
+            }
+            Err(e) => eprintln!("[cadence] update {version} unreadable ({e}), running built-in app"),
+        }
+    }
+
     app_builder
+        .manage(cadence::CadenceState {
+            identifier: cadence_identifier,
+            builtin_version: cadence_builtin_version,
+            update_active: cadence_update_active,
+        })
         .invoke_handler(tauri::generate_handler![
             download_file,
             send_notification,
@@ -196,6 +225,12 @@ pub fn run_app() {
             clear_dock_badge,
             update_theme_mode,
             set_zoom,
+            cadence::bridge::cadence_shell_info,
+            cadence::bridge::cadence_linked_save,
+            cadence::bridge::cadence_pick_save_file,
+            cadence::bridge::cadence_read_save,
+            cadence::bridge::cadence_write_save,
+            cadence::bridge::cadence_unlink_save,
         ])
         .setup(move |app| {
             app.manage(MultiWindowState::new(
@@ -286,7 +321,7 @@ pub fn run_app() {
                 // This lets tauri-plugin-window-state save the window position and size
             }
         })
-        .build(tauri::generate_context!())
+        .build(context)
         .unwrap_or_else(|error| {
             eprintln!("[Pake] Fatal error while building Tauri application: {error}");
             std::process::exit(1);

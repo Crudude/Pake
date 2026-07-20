@@ -119,14 +119,14 @@ input, textarea, select { font: inherit; color: inherit; }
    a normal class rule. Focus ring included — do NOT re-declare either
    per component. */
 :where(.search, .log-input, .notes-area, .form-area, .add-row input,
-  .log-add input, .field textarea, .field input,
+  .log-add input, .field textarea, .field input, .week-name-input,
   .modal input[type='text'], .modal input[type='password'], .modal select) {
   border: 1px solid var(--line);
   border-radius: 7px;
   background: #FFFFFF;
 }
 :where(.search, .log-input, .notes-area, .form-area, .add-row input,
-  .log-add input, .field textarea, .field input,
+  .log-add input, .field textarea, .field input, .week-name-input,
   .modal input[type='text'], .modal input[type='password'], .modal select):focus {
   outline: none;
   border-color: var(--moss);
@@ -1065,6 +1065,11 @@ input, textarea, select { font: inherit; color: inherit; }
 .settings-pop .set-row > div:first-child { flex: 1 1 0; min-width: 0; }
 .settings-pop .set-row .hint { font-size: 11px; color: var(--ink-3); line-height: 1.4; margin-top: 1px; }
 .settings-pop hr { border: none; border-top: 1px solid var(--line-soft); }
+.settings-pop .week-name-input {
+  flex: 1 1 0; min-width: 0;
+  padding: 6px 10px;
+  font-size: 13px;
+}
 .settings-pop .about { font-size: 11px; color: var(--ink-3); line-height: 1.5; }
 
 .switch { position: relative; width: 34px; height: 20px; flex: none; }

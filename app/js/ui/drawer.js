@@ -4,7 +4,7 @@
 import { mutate, makeFieldSaver } from '../state/store.js';
 import { assignmentsOf } from '../domain/schedule.js';
 import {
-  DAYS, SESSION_DURATIONS, fmtTimeRange, parityLabel, shortDate, todayISO,
+  DAYS, SESSION_DURATIONS, fmtTimeRange, parityPhrase, shortDate, todayISO,
 } from '../domain/time.js';
 import {
   removeAssignment, cycleDuration, pauseClient, resumeClient,
@@ -34,7 +34,7 @@ const TYPE_OPTIONS = [
   ['weekly', 'Weekly'],
   ['biweekly', 'Every other week'],
   ['monthly', 'Monthly'],
-  ['self', 'Books herself'],
+  ['self', 'Self-booking'],
 ];
 
 const LOC_OPTIONS = [
@@ -94,7 +94,7 @@ export function renderDrawer(els, ctx) {
     ${c.status === 'closed' ? `
       <div class="paused-note">
         File closed${c.closed?.since ? ` since <b>${shortDate(c.closed.since)}</b>` : ''} &middot;
-        her notes are kept, reopen anytime.
+        notes are kept, reopen anytime.
       </div>` : ''}
 
     <section class="drawer-section">
@@ -119,7 +119,7 @@ export function renderDrawer(els, ctx) {
       <h3>Scheduling notes</h3>
       <div class="field">
         <textarea data-f="schedulingNotes" rows="2"
-          placeholder="Preferences, constraints, the shape of her availability&hellip;">${escapeHTML(c.schedulingNotes)}</textarea>
+          placeholder="Preferences, constraints, the shape of the week&hellip;">${escapeHTML(c.schedulingNotes)}</textarea>
       </div>
     </section>
 
@@ -190,7 +190,7 @@ export function renderDrawer(els, ctx) {
     pauseBtn.addEventListener('click', async () => {
       const values = await openModal({
         title: `Pause ${c.name}`,
-        bodyHTML: 'She stays visible in the Paused tray and her slots read as open while she’s away.',
+        bodyHTML: 'Paused clients stay visible in the Paused tray, and their slots read as open in the meantime.',
         formHTML: `
           <div class="form-row"><label>Expected back</label>
             <input type="text" name="expectedReturn" placeholder="e.g. September, or after the baby"></div>
@@ -211,8 +211,8 @@ export function renderDrawer(els, ctx) {
       if (slots.length) {
         const ok = await openModal({
           title: `Close ${c.name}’s file?`,
-          bodyHTML: `Her ${slots.length} slot${slots.length === 1 ? '' : 's'} open up for other
-            clients. Notes and history stay — she moves to Closed files at the bottom of
+          bodyHTML: `The ${slots.length} slot${slots.length === 1 ? '' : 's'} open${slots.length === 1 ? 's' : ''} up for other
+            clients. Notes and history stay — the file moves to Closed files at the bottom of
             the roster, one click from reopening.`,
           confirmText: 'Close file',
         });
@@ -306,7 +306,7 @@ export function renderDrawer(els, ctx) {
   drawer.querySelector('[data-act="delete"]').addEventListener('click', async () => {
     const ok = await openModal({
       title: `Delete ${c.name}?`,
-      bodyHTML: `Removes her slots and every note. A backup file of everything
+      bodyHTML: `Removes the slots and every note. A backup file of everything
         is saved to Downloads first, so this is recoverable from there — but not
         inside the app.`,
       confirmText: 'Delete',
@@ -346,7 +346,7 @@ function slotRow(a, c, state) {
   const day = DAYS.find((d) => d.dow === a.day);
   const cadence = a.parity === 'both'
     ? 'Both weeks'
-    : `${parityLabel(a.parity, state.settings)} weeks`;
+    : parityPhrase(a.parity, state.settings);
   const multi = c.sessions.length > 1;
   return `
     <div class="slot-row${multi ? ' slot-row--tall' : ''}" data-slot="${a.id}">

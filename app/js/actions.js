@@ -158,7 +158,7 @@ export function placeClient(clientId, day, parityIdx, start) {
   const c = client(clientId);
   if (!c) return false;
   if (c.type === 'monthly' || c.type === 'self') {
-    toast(`${c.name} is flexible — she lives in the tray, not the grid`);
+    toast(`${c.name} is flexible — the tray is home, not the grid`);
     return false;
   }
   const sess = primarySession(c);
@@ -186,7 +186,7 @@ export function placeClient(clientId, day, parityIdx, start) {
     toast(`Placed as ${duration} min — ${sess.duration} min doesn’t fit before close`, 'warn');
   }
   if (displaced) {
-    toast(`${c.name} is back — ${displaced} of her old slot${displaced === 1 ? ' was' : 's were'} `
+    toast(`${c.name} is back — ${displaced} old slot${displaced === 1 ? ' was' : 's were'} `
       + 'taken meanwhile and removed', 'warn');
   }
   return true;
@@ -254,7 +254,7 @@ export function pauseClient(clientId, details = {}) {
     };
     target.updatedAt = new Date().toISOString();
   });
-  toast(`${c.name} paused — her slots read as open while she’s away`);
+  toast(`${c.name} paused — the slots read as open in the meantime`);
 }
 
 // While a client is paused her assignments stay in the data but don't
@@ -304,7 +304,7 @@ export function reopenClient(clientId) {
     target.closed = null;
     target.updatedAt = new Date().toISOString();
   });
-  toast(`${c.name} is back — place her when a slot opens`);
+  toast(`${c.name} is back — re-place when a slot opens`);
 }
 
 export function resumeClient(clientId) {
@@ -313,7 +313,7 @@ export function resumeClient(clientId) {
   let displaced = 0;
   mutate((s) => { displaced = unpauseInPlace(s, clientId); });
   toast(displaced
-    ? `${c.name} is back — ${displaced} of her old slot${displaced === 1 ? ' was' : 's were'} taken meanwhile, re-place her`
+    ? `${c.name} is back — ${displaced} old slot${displaced === 1 ? ' was' : 's were'} taken meanwhile, re-place them`
     : `${c.name} is back on the schedule`);
 }
 
@@ -370,7 +370,7 @@ export function changeClientType(clientId, type) {
   } else if (type === 'weekly' && dropped) {
     toast(`${c.name} is weekly now — ${dropped} slot${dropped === 1 ? ' was' : 's were'} taken in the other week and dropped`, 'warn');
   } else if (type === 'weekly' && merged) {
-    toast(`${c.name} is weekly now — her matching slots merged into one`);
+    toast(`${c.name} is weekly now — the matching slots merged into one`);
   } else if (type === 'biweekly' && widened) {
     toast(`${c.name}’s slots now sit in one week — drag across the seam to adjust`);
   }
@@ -418,7 +418,7 @@ export function removeSessionType(clientId, sessionId) {
   mutate((s) => {
     const target = s.clients.find((x) => x.id === clientId);
     target.sessions = target.sessions.filter((t) => t.id !== sessionId);
-    fallbackLabel = target.sessions[0].label || 'her main session';
+    fallbackLabel = target.sessions[0].label || 'the main session';
     for (const a of s.assignments) {
       if (a.clientId === clientId && a.sessionId === sessionId) {
         a.sessionId = target.sessions[0].id;

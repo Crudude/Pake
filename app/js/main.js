@@ -7,6 +7,7 @@ import { saveSnapshot } from './state/db.js';
 import { sampleData } from './state/seed.js';
 import {
   weekHeadingParts, columnOrder, currentParity, daysAgo, BLOCK_DURATIONS,
+  parityNames, hasDefaultParityNames,
 } from './domain/time.js';
 import { openHourCounts } from './domain/schedule.js';
 import { addClient, updateBlock, removeBlock } from './actions.js';
@@ -143,7 +144,7 @@ async function addClientFlow() {
           <option value="weekly">Weekly</option>
           <option value="biweekly" selected>Every other week</option>
           <option value="monthly">Monthly</option>
-          <option value="self">Books herself</option>
+          <option value="self">Self-booking</option>
         </select></div>`,
     confirmText: 'Add',
   });
@@ -168,18 +169,18 @@ function loadSample() {
 
 /* ---------- board tools (view toggle) ---------- */
 
-const VIEWS = [['split', 'Both weeks'], ['even', 'Even'], ['odd', 'Odd']];
-
 function renderBoardTools(state) {
   const mode = state.settings.viewMode;
+  const names = parityNames(state.settings);
+  const views = [['split', 'Both weeks'], ['even', names[0]], ['odd', names[1]]];
   const viewedParity = parityForView(mode, state.settings);
   const note = viewedParity === null
     ? ''
     : (viewedParity === currentParity() ? 'this week' : 'next week');
   els.boardTools.innerHTML = `
     <div class="seg" role="group" aria-label="Week view">
-      ${VIEWS.map(([v, label]) =>
-        `<button type="button" data-view="${v}"${v === mode ? ' class="is-active"' : ''}>${label}</button>`).join('')}
+      ${views.map(([v, label]) =>
+        `<button type="button" data-view="${v}"${v === mode ? ' class="is-active"' : ''}>${escapeHTML(label)}</button>`).join('')}
     </div>
     ${note ? `<span class="view-note">${note}</span>` : ''}
     <span style="flex:1"></span>
@@ -213,12 +214,15 @@ function renderHeader(state) {
   } else {
     const parts = weekHeadingParts(new Date(), state.settings);
     els.weekHeading.innerHTML =
-      `Week of ${parts.weekOf} &middot; <em>${parts.parityName.toLowerCase()} week</em>`;
+      `Week of ${parts.weekOf} &middot; <em>${escapeHTML(parts.parityHeading)}</em>`;
 
     const counts = openHourCounts(state);
     const order = columnOrder(state.settings);
+    const names = parityNames(state.settings);
+    const lower = hasDefaultParityNames(state.settings);
     els.openCounts.textContent =
-      `open hours — even ${counts[order[0]]} · odd ${counts[order[1]]}`;
+      `open hours — ${lower ? names[0].toLowerCase() : names[0]} ${counts[order[0]]}`
+      + ` · ${lower ? names[1].toLowerCase() : names[1]} ${counts[order[1]]}`;
   }
 
   const last = state.settings.lastBackupAt;
@@ -276,6 +280,7 @@ function renderAll(state = getState(), meta = {}) {
 
   if (ui.page === 'schedule') {
     renderBoardTools(state);
+    renderLegend(els.legend, state.settings);
     renderGrid(els.board, ctx);
     renderRoster(els.roster, ctx);
     renderRail(els.rail, ctx);
@@ -351,6 +356,24 @@ async function boot() {
     mutate(() => {});
   };
 
+  // Wired BEFORE the locked early-return: without these, dropping a
+  // file anywhere navigates the webview away from the app — including
+  // on the lock screen, where dropping the shared save is exactly how
+  // a new machine gets its data. A dropped backup .json is routed into
+  // the restore flow; a successful adoption while locked re-boots.
+  document.addEventListener('dragover', (e) => {
+    if (!drag.active) e.preventDefault();
+  });
+  document.addEventListener('drop', (e) => {
+    if (drag.active) return;
+    e.preventDefault();
+    const file = e.dataTransfer?.files?.[0];
+    if (!file || !file.name.toLowerCase().endsWith('.json')) return;
+    restoreFromFile(file).then(() => {
+      if (!session.locked && document.querySelector('.load-error')) location.reload();
+    }).catch(() => toast('Couldn’t open that file', 'warn'));
+  });
+
   if (session.locked) { renderLockScreen(); return; }
   finishBoot();
 }
@@ -413,19 +436,6 @@ function finishBoot() {
     }
   });
 
-  // Without these, dropping a file anywhere outside a handled cell
-  // navigates the webview away from the app. A dropped backup .json is
-  // routed into the restore flow instead.
-  document.addEventListener('dragover', (e) => {
-    if (!drag.active) e.preventDefault();
-  });
-  document.addEventListener('drop', (e) => {
-    if (drag.active) return;
-    e.preventDefault();
-    const file = e.dataTransfer?.files?.[0];
-    if (file && file.name.toLowerCase().endsWith('.json')) restoreFromFile(file);
-  });
-
   // Flush half-typed edits and the debounced file write if the app is
   // being hidden or quit. WKWebView doesn't reliably fire
   // visibilitychange on Cmd+Q, so pagehide and blur cover the gap.
@@ -452,7 +462,6 @@ function finishBoot() {
   // browser) run the Jane import or read the week plan for batch booking.
   window.cadence = { importJaneCSV, importJaneClients, getWeekPlan, anonymize };
 
-  renderLegend(els.legend);
   subscribe((state, meta) => renderAll(state, meta));
   renderAll();
 

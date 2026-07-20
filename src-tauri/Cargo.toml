@@ -20,6 +20,12 @@ tauri-build = { version = "2.5.5", features = [] }
 [dependencies]
 serde_json = "1.0.149"
 serde = { version = "1.0.228", features = ["derive"] }
+# Cadence shell: save-file bridge + signed update loader
+rfd = "0.15"
+ed25519-dalek = "2"
+sha2 = "0.10"
+zip = { version = "2", default-features = false, features = ["deflate"] }
+dirs = "6"
 tokio = { version = "1.49.0", features = ["time"] }
 tauri = { version = "2.10.2", features = [
   "tray-icon",

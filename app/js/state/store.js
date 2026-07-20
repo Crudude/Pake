@@ -12,8 +12,8 @@ import {
   decryptWithRawKeys, exportRawKeys,
 } from './crypto.js';
 import {
-  kvGet, kvSet, kvDel, getSavedHandle, ensurePermission,
-  readFileEnvelope, writeFileEnvelope, deviceId as getDeviceId,
+  kvGet, kvSet, kvDel, getSavedHandle, ensurePermission, unlinkSaveFile,
+  initSyncBackend, readFileEnvelope, writeFileEnvelope, deviceId as getDeviceId,
 } from './sync.js';
 
 export const SCHEMA_VERSION = 1;
@@ -26,6 +26,15 @@ export function emptyData() {
     assignments: [],
     waitlist: [],
   };
+}
+
+// "Anything in it at all?" — the gate for wipe buttons and pre-destroy
+// safety copies. Checks every collection, not just clients.
+export function hasAnyData(state) {
+  return !!state && !!(state.clients.length || state.assignments.length
+    || state.waitlist.length || state.blocks.length || state.todos.length
+    || state.reading.length || state.training.length
+    || Object.keys(state.weekPlans).length);
 }
 
 export function validEnvelope(env) {
@@ -44,6 +53,14 @@ export function validEnvelope(env) {
 export function normalizeData(data) {
   const s = data.settings;
   if (s.parityLabelFlipped === undefined) s.parityLabelFlipped = false;
+  // Custom names for the two alternating weeks — free text, but clamped
+  // so a corrupt value can't blow up layouts (they render in headers,
+  // buttons and chips).
+  if (!s.parityNames || typeof s.parityNames !== 'object' || Array.isArray(s.parityNames)) {
+    s.parityNames = { even: 'Even', odd: 'Odd' };
+  }
+  s.parityNames.even = String(s.parityNames.even ?? 'Even').trim().slice(0, 14) || 'Even';
+  s.parityNames.odd = String(s.parityNames.odd ?? 'Odd').trim().slice(0, 14) || 'Odd';
   if (s.lastBackupAt === undefined) s.lastBackupAt = null;
   if (s.viewMode === undefined || !['split', 'even', 'odd'].includes(s.viewMode)) s.viewMode = 'split';
   if (!Array.isArray(data.waitlist)) data.waitlist = [];
@@ -178,6 +195,7 @@ function isEncryptedEnvelope(env) {
 }
 
 export async function initStore() {
+  await initSyncBackend(); // decides FSA vs shell bridge before any handle use
   session.deviceId = await getDeviceId();
   session.handle = await getSavedHandle();
   let fileEnv = null;
@@ -201,11 +219,14 @@ export async function initStore() {
   if (isEncryptedEnvelope(fileEnv)
     && (!local || fr > lr || (fr === lr && fileEnv.deviceId === local.deviceId))) {
     chosen = fileEnv;
-  } else if (isEncryptedEnvelope(fileEnv) && fr === lr && fileEnv.deviceId !== local.deviceId) {
-    // Divergent tie: keep local and stash the conflict — the UI raises
-    // it once boot (and any unlock) has finished. A setTimeout here
-    // would fire before main.js registers the handler, or while locked,
-    // and the divergence would be silently forgotten.
+  } else if (isEncryptedEnvelope(fileEnv) && local
+    && (fileEnv.deviceId ?? null) !== (local.deviceId ?? null)) {
+    // A foreign-device file at or BEHIND our rev is a divergence, not
+    // merely stale — the manual "Export shared save" round-trip
+    // legitimately produces lower revs than the linked machine's local
+    // count. Keep local, stash the conflict for the UI to raise once
+    // boot (and any unlock) has finished, and poison the file identity
+    // below so the first save re-asks instead of silently clobbering.
     divergentTie = true;
     session.pendingConflict = fileEnv;
   }
@@ -283,6 +304,10 @@ export async function setupEncryption(therapistPass, adminPass) {
 // over everything edited after this point.
 export async function disableEncryption() {
   if (session.role !== 'therapist') return false;
+  // Unlink FIRST: if the shell refuses, abort with encryption intact —
+  // a surviving link would resurrect the stale encrypted file over the
+  // new plain data on the next boot.
+  await unlinkSaveFile();
   clearTimeout(writeTimer);
   writeTimer = null;
   session.encrypted = false;
@@ -293,7 +318,6 @@ export async function disableEncryption() {
   session.fileRev = null;
   session.fileDevice = null;
   await kvDel('keyCache');
-  await kvDel('fileHandle');
   persist();
   return true;
 }
@@ -358,6 +382,38 @@ export async function adoptEnvelope(envelope, { isFileContent = false } = {}) {
   session.role = opened.role;
   session.keys = opened.keys;
   replaceData(normalizeData(opened.data));
+  return true;
+}
+
+// Open an encrypted envelope from a file with a passphrase and make it
+// THIS device's data — the manual path for machines that can't link the
+// shared file. The device stays unlocked afterwards (key cached), so
+// subsequent loads of the same lineage need no passphrase.
+export async function adoptWithPassphrase(envelope, passphrase) {
+  const opened = await unlockEnvelope(envelope, passphrase);
+  if (!opened) return false;
+  // If a shared file is linked, it belongs to the PREVIOUS lineage —
+  // poison its identity so the next write raises the conflict prompt
+  // instead of silently overwriting the other practice's save.
+  if (session.handle) {
+    session.fileRev = -1;
+    session.fileDevice = null;
+  }
+  envelope.rev = Math.max(envelope.rev ?? 0, session.envelope?.rev ?? 0);
+  session.encrypted = true;
+  session.locked = false;
+  session.envelope = envelope;
+  session.role = opened.role;
+  session.keys = opened.keys;
+  try { await kvSet('keyCache', await exportRawKeys(opened.keys)); } catch { /* ask again next launch */ }
+  replaceData(normalizeData(opened.data));
+  // The data is encrypted now — plaintext snapshot history must go, but
+  // only after an encrypted snapshot truly committed.
+  try {
+    const env = await currentEnvelope();
+    await saveSnapshot(env);
+    await deletePlainSnapshots();
+  } catch { /* initStore retro-cleans on next boot */ }
   return true;
 }
 

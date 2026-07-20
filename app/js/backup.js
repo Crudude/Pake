@@ -8,20 +8,16 @@
 // every Downloads export silently failed.
 
 import {
-  getState, replaceData, mutate, validEnvelope,
-  normalizeData, flushPendingEdits, currentEnvelope, session,
+  getState, replaceData, mutate, validEnvelope, normalizeData, hasAnyData,
+  flushPendingEdits, currentEnvelope, session,
+  adoptEnvelope, adoptWithPassphrase,
 } from './state/store.js';
 import { kvGet, kvSet } from './state/sync.js';
 import { openModal, escapeHTML } from './ui/dialogs.js';
 import { toast } from './ui/toast.js';
 import { todayISO, daysAgo } from './domain/time.js';
 
-export async function exportBackup({ silent = false } = {}) {
-  flushPendingEdits();
-  // Seals the post-flush state (with encryption on, backups are the
-  // sealed envelope — never plaintext).
-  const envelope = await currentEnvelope();
-  const filename = `cadence-backup-${todayISO()}.json`;
+function downloadJSON(filename, envelope) {
   const blob = new Blob([JSON.stringify(envelope, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -32,9 +28,28 @@ export async function exportBackup({ silent = false } = {}) {
   a.remove();
   // Keep the blob alive until the (possibly native) download has started.
   setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
+export async function exportBackup({ silent = false } = {}) {
+  flushPendingEdits();
+  // Seals the post-flush state (with encryption on, backups are the
+  // sealed envelope — never plaintext).
+  const envelope = await currentEnvelope();
+  const filename = `cadence-backup-${todayISO()}.json`;
+  downloadJSON(filename, envelope);
   mutate((s) => { s.settings.lastBackupAt = new Date().toISOString(); }, { source: 'backup' });
   // Naming the file makes a silently-missing download discoverable.
   if (!silent) toast(`Backup saved — ${filename} in Downloads`);
+}
+
+// Manual sync for machines that can't link the shared file: download a
+// copy named exactly like the shared save, so replacing the one in the
+// OneDrive folder is a single drag in Finder.
+export async function exportSharedSaveCopy() {
+  flushPendingEdits();
+  const envelope = await currentEnvelope();
+  downloadJSON('cadence-shared-save.json', envelope);
+  toast('cadence-shared-save.json is in Downloads — move it into the shared OneDrive folder, replacing the old one');
 }
 
 // Before anything destructive: park the full envelope on this device,
@@ -71,11 +86,23 @@ export async function restoreFromFile(file) {
     envelope = null;
   }
   if (envelope?.format === 'cadence-encrypted') {
-    toast('That’s an encrypted shared save — link it via Settings → Choose save file', 'warn');
+    // Same shape gate the store applies — a hand-corrupted "encrypted"
+    // file must fall through to the not-a-backup toast, not throw.
+    if (envelope.practice && envelope.roles) {
+      await restoreEncrypted(envelope);
+      return;
+    }
+    toast('That file isn’t a Cadence backup', 'warn');
     return;
   }
   if (!validEnvelope(envelope)) {
     toast('That file isn’t a Cadence backup', 'warn');
+    return;
+  }
+  // While locked there is no state to replace safely — plain restores
+  // need an unlocked session (encrypted saves handle lock themselves).
+  if (session.locked) {
+    toast('Unlock first — then restore the backup', 'warn');
     return;
   }
   // A plain backup carries clinical fields; an admin-role seal would
@@ -86,7 +113,7 @@ export async function restoreFromFile(file) {
   }
   const d = envelope.data;
   const saved = envelope.savedAt ? new Date(envelope.savedAt) : null;
-  const hasCurrentData = getState().clients.length > 0;
+  const hasCurrentData = hasAnyData(getState());
   const ok = await openModal({
     title: 'Restore this backup?',
     bodyHTML: `It replaces what’s in the app right now${hasCurrentData
@@ -107,4 +134,45 @@ export async function restoreFromFile(file) {
   }
   replaceData(normalizeData(structuredClone(d)));
   toast('Backup restored');
+}
+
+// An encrypted shared save opened by hand — the manual round-trip for
+// machines without file linking, and the recovery path everywhere else.
+async function restoreEncrypted(envelope) {
+  const hasCurrentData = hasAnyData(getState());
+  let parked = false;
+  const park = async () => {
+    if (hasCurrentData && !parked) {
+      parked = true;
+      await stashPreDestroyBackup();
+      await exportBackup({ silent: true });
+    }
+  };
+
+  // Same lineage as this device's keys? Opens without a passphrase.
+  if (session.encrypted && session.keys && !session.locked) {
+    await park();
+    if (await adoptEnvelope(envelope)) {
+      toast('Shared save loaded');
+      return;
+    }
+  }
+
+  const values = await openModal({
+    title: 'Encrypted Cadence save',
+    bodyHTML: `Enter a passphrase to open it — the therapist one opens everything,
+      the admin one opens scheduling only.${hasCurrentData
+      ? ' It replaces what’s in the app right now (the current data is saved to Downloads first).' : ''}`,
+    formHTML: `
+      <div class="form-row"><label>Passphrase</label>
+        <input type="password" name="passphrase"></div>`,
+    confirmText: 'Open',
+  });
+  if (!values) return;
+  await park();
+  if (await adoptWithPassphrase(envelope, values.passphrase)) {
+    toast('Shared save loaded — this computer stays unlocked');
+  } else {
+    toast('That passphrase doesn’t open this file', 'warn');
+  }
 }

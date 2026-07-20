@@ -7,7 +7,7 @@
 
 import {
   DAYS, SLOTS, STEP, DAY_START, DAY_END,
-  hourLabel, fmtTimeRange, parityLabel, columnOrder, currentParity,
+  hourLabel, fmtTimeRange, parityLabel, parityNames, columnOrder, currentParity,
 } from '../domain/time.js';
 import { startDrag, endDrag, readDrop, drag } from './dnd.js';
 import {
@@ -56,7 +56,7 @@ export function renderGrid(el, ctx) {
           parityIdx === nowParity ? 'is-current' : '',
           i % 2 === 1 ? 'gd-sub--alt' : '',
         ].filter(Boolean).join(' ');
-        sub.textContent = v === 0 ? 'Even' : 'Odd';
+        sub.textContent = parityNames(settings)[v];
         sub.title = parityIdx === nowParity ? 'This week' : 'Next week';
         sub.style.gridColumn = `${2 + i * 2 + v}`;
         sub.style.gridRow = '2';
@@ -236,12 +236,15 @@ export function renderGrid(el, ctx) {
   el.replaceChildren(grid);
 }
 
-export function renderLegend(el) {
+export function renderLegend(el, settings) {
+  // First two letters of the current-week column's name, mirroring the
+  // dotted marker in the day sub-headers.
+  const current = parityLabel(currentParity(), settings).slice(0, 2);
   el.innerHTML = `
     <span class="sample"><span class="sw sw--weekly"></span>weekly</span>
     <span class="sample"><span class="sw sw--biweekly"></span>every other week</span>
     <span class="sample"><span class="sw sw--inperson"></span>in person</span>
     <span class="sample"><span class="sw sw--virtual"></span>virtual</span>
     <span class="sample"><span class="sw-mixed">name</span>&thinsp;mixed</span>
-    <span class="sample"><span class="sw-week">Ev</span>&thinsp;this week</span>`;
+    <span class="sample"><span class="sw-week">${escapeAttr(current)}</span>&thinsp;this week</span>`;
 }

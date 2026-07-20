@@ -5,8 +5,8 @@
 
 import { getState, mutate } from '../state/store.js';
 import {
-  DAYS, DAY_START, DAY_END, weekIndexOf, parityLabel, fmtTimeRange,
-  dateForWeek, fmtDayDate, columnOrder,
+  DAYS, DAY_START, DAY_END, weekIndexOf, parityLabel, parityNames,
+  hasDefaultParityNames, fmtTimeRange, dateForWeek, fmtDayDate, columnOrder,
 } from '../domain/time.js';
 import { sessionOf } from '../actions.js';
 import { escapeHTML } from './dialogs.js';
@@ -79,7 +79,9 @@ export function renderBooking(el, ctx) {
   const wi = weekIndexOf() + weekOffset;
   const plan = getWeekPlan(wi);
   const monday = dateForWeek(wi, 1);
-  const parityName = parityLabel(plan.parity, state.settings).toLowerCase();
+  const parityRaw = parityLabel(plan.parity, state.settings);
+  const parityName = hasDefaultParityNames(state.settings)
+    ? `${parityRaw.toLowerCase()} week` : parityRaw;
   const whenNote = weekOffset === 0 ? 'this week'
     : weekOffset === 1 ? 'next week'
       : weekOffset > 1 ? `in ${weekOffset} weeks` : `${-weekOffset} week${weekOffset === -1 ? '' : 's'} ago`;
@@ -99,7 +101,7 @@ export function renderBooking(el, ctx) {
         <div class="wk-nav">
           <button class="icon-btn" data-act="prev" aria-label="Earlier week">&lsaquo;</button>
           <div class="wk-title">
-            <span class="wk-week">Week of ${fmtDayDate(monday)} &middot; <em>${parityName} week</em></span>
+            <span class="wk-week">Week of ${fmtDayDate(monday)} &middot; <em>${escapeHTML(parityName)}</em></span>
             <span class="view-note">${whenNote}</span>
           </div>
           <button class="icon-btn" data-act="next" aria-label="Later week">&rsaquo;</button>
@@ -131,7 +133,7 @@ export function renderBooking(el, ctx) {
             <div class="wk-row" data-fid="${f.clientId}">
               <span class="wk-time">&mdash;</span>
               <span class="wk-code">${escapeHTML(f.code)}</span>
-              <span class="wk-detail">${f.type === 'monthly' ? 'monthly' : 'books herself'}${f.notes ? ` &middot; ${escapeHTML(f.notes.slice(0, 70))}` : ''}</span>
+              <span class="wk-detail">${f.type === 'monthly' ? 'monthly' : 'self-booking'}${f.notes ? ` &middot; ${escapeHTML(f.notes.slice(0, 70))}` : ''}</span>
               <button class="status-chip status-chip--${f.status}" data-status="${f.status}" data-act="status" title="Click to cycle">${STATUS_LABEL[f.status]}</button>
             </div>`).join('')}
         </div>` : ''}
@@ -150,7 +152,7 @@ export function renderBooking(el, ctx) {
       `${DAYS.find((d) => d.dow === p.day)?.short} ${p.dateLabel} ${p.time} — ${p.janeName || p.code} — ${p.session}${p.modality ? ` (${p.modality})` : ''}${p.location ? `, ${LOC_LABEL[p.location]}` : ''}, ${p.duration} min`);
     if (!lines.length) { toast('Nothing left to book this week'); return; }
     copyToClipboard(
-      `Bookings — week of ${fmtDayDate(monday)} (${parityName} week)\n${lines.join('\n')}`,
+      `Bookings — week of ${fmtDayDate(monday)} (${parityName})\n${lines.join('\n')}`,
       'Copied — paste it wherever it helps',
     );
   });
@@ -195,9 +197,10 @@ function utilizationTable(state) {
   // Columns follow the same Even-left contract as the grid, so the
   // parityLabelFlipped setting can't desync this table from the board.
   const order = columnOrder(state.settings);
+  const names = parityNames(state.settings);
   return `
     <table class="util-table">
-      <thead><tr><th></th><th>Even</th><th>Odd</th></tr></thead>
+      <thead><tr><th></th><th>${escapeHTML(names[0])}</th><th>${escapeHTML(names[1])}</th></tr></thead>
       <tbody>
         ${DAYS.map((d) => `<tr><th>${d.short}</th>${cell(hours[d.dow][order[0]])}${cell(hours[d.dow][order[1]])}</tr>`).join('')}
       </tbody>

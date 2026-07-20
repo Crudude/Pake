@@ -110,7 +110,7 @@ export function renderFormulation(el, ctx) {
             </div>`).join('')}
           <p class="form-footer">A living document — update after significant sessions or treatment shifts.
             ${f.updatedAt ? `Last touched ${escapeHTML(new Date(f.updatedAt).toLocaleDateString())}.` : ''}</p>`
-        : '<p class="page-empty">Pick a client to start her formulation.</p>'}
+        : '<p class="page-empty">Pick a client to start the formulation.</p>'}
       </section>
     </div>`;
 

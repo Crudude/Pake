@@ -5,19 +5,16 @@
 import {
   mutate, session, setupEncryption, disableEncryption, lockDevice,
   linkSaveFile, adoptEnvelope, overwriteLinkedFile,
-  replaceData, normalizeData, validEnvelope, emptyData,
+  replaceData, normalizeData, validEnvelope, emptyData, hasAnyData,
 } from '../state/store.js';
-import { fsaSupported, pickSaveFile, kvDel } from '../state/sync.js';
-import { exportBackup, stashPreDestroyBackup, getPreDestroyBackup } from '../backup.js';
+import { fileLinkingSupported, pickSaveFile, unlinkSaveFile } from '../state/sync.js';
+import { parityNames } from '../domain/time.js';
+import {
+  exportBackup, exportSharedSaveCopy, stashPreDestroyBackup, getPreDestroyBackup,
+} from '../backup.js';
 import { importJaneCSV } from '../jane.js';
 import { openModal, escapeHTML } from './dialogs.js';
 import { toast } from './toast.js';
-
-function hasAnyData(state) {
-  return !!(state.clients.length || state.assignments.length || state.waitlist.length
-    || state.blocks.length || state.todos.length || state.reading.length
-    || state.training.length || Object.keys(state.weekPlans).length);
-}
 
 export function renderSettings(el, ctx) {
   if (!ctx.ui.settingsOpen) {
@@ -27,11 +24,24 @@ export function renderSettings(el, ctx) {
   el.hidden = false;
   const state = ctx.state;
   const hasData = hasAnyData(state);
+  const names = parityNames(state.settings);
   el.innerHTML = `
     <div class="set-row">
       <div>
-        <div>Swap the Even / Odd labels</div>
-        <div class="hint">If what she calls an “even week” shows as odd, flip this once.</div>
+        <div>Week names</div>
+        <div class="hint">What the two alternating weeks are called — rename them to anything.</div>
+      </div>
+    </div>
+    <div class="set-row">
+      <input type="text" class="week-name-input" data-set="name-even"
+        value="${escapeHTML(names[0])}" maxlength="14" autocomplete="off" aria-label="First week name">
+      <input type="text" class="week-name-input" data-set="name-odd"
+        value="${escapeHTML(names[1])}" maxlength="14" autocomplete="off" aria-label="Second week name">
+    </div>
+    <div class="set-row">
+      <div>
+        <div>Swap the two weeks</div>
+        <div class="hint">If this week shows under the wrong name, flip this once.</div>
       </div>
       <label class="switch">
         <input type="checkbox" data-set="flip" ${state.settings.parityLabelFlipped ? 'checked' : ''}>
@@ -44,14 +54,15 @@ export function renderSettings(el, ctx) {
         <div class="hint">${session.encrypted
           ? `Encrypted &middot; ${session.role} role &middot; ${session.handle
             ? (session.filePermission ? 'file linked' : 'file needs reconnecting')
-            : (fsaSupported() ? 'no file linked yet' : 'file linking isn’t available on this computer yet')}`
+            : (fileLinkingSupported() ? 'no file linked yet' : 'no file link on this build — use Export shared save')}`
           : 'Off — data stays on this computer only.'}</div>
       </div>
     </div>
     <div class="set-row">
       ${!session.encrypted
         ? '<button class="btn btn--primary" data-act="sync-setup">Set up encrypted sync&hellip;</button>'
-        : `${fsaSupported() ? '<button class="btn" data-act="sync-file">Choose save file&hellip;</button>' : ''}
+        : `${fileLinkingSupported() ? '<button class="btn" data-act="sync-file">Choose save file&hellip;</button>' : ''}
+           ${!fileLinkingSupported() && !session.handle ? '<button class="btn" data-act="export-shared">Export shared save&hellip;</button>' : ''}
            <button class="btn" data-act="sync-lock">Lock now</button>
            ${session.role === 'therapist' ? '<button class="btn btn--danger" data-act="sync-off">Turn off&hellip;</button>' : ''}`}
     </div>
@@ -78,6 +89,14 @@ export function renderSettings(el, ctx) {
     mutate((s) => { s.settings.parityLabelFlipped = e.target.checked; });
   });
 
+  for (const [attr, key, fallback] of [['name-even', 'even', 'Even'], ['name-odd', 'odd', 'Odd']]) {
+    const input = el.querySelector(`[data-set="${attr}"]`);
+    input.addEventListener('change', () => {
+      const value = input.value.trim().slice(0, 14) || fallback;
+      mutate((s) => { s.settings.parityNames[key] = value; });
+    });
+  }
+
   const closeAnd = (fn) => async () => {
     ctx.ui.settingsOpen = false;
     ctx.rerender();
@@ -89,9 +108,9 @@ export function renderSettings(el, ctx) {
     syncSetup.addEventListener('click', closeAnd(async () => {
       const values = await openModal({
         title: 'Set up encrypted sync',
-        bodyHTML: `Two passphrases: hers opens everything; the admin one opens
-          scheduling but can never decrypt case plans, session logs or formulations.
-          <b>Write them down somewhere safe — there is no reset.</b>`,
+        bodyHTML: `Two passphrases: the therapist one opens everything; the admin
+          one opens scheduling but can never decrypt case plans, session logs or
+          formulations. <b>Write them down somewhere safe — there is no reset.</b>`,
         formHTML: `
           <div class="form-row"><label>Therapist passphrase (min 8)</label>
             <input type="password" name="tp"></div>
@@ -107,9 +126,9 @@ export function renderSettings(el, ctx) {
       if (values.tp.length < 8 || values.tp !== values.tp2) { toast('Therapist passphrases don’t match (min 8)', 'warn'); return; }
       if (values.ap.length < 8 || values.ap !== values.ap2 || values.ap === values.tp) { toast('Admin passphrase invalid — min 8 and different', 'warn'); return; }
       await setupEncryption(values.tp, values.ap);
-      // The file-picker button only exists where the File System Access
-      // API does — don't send the Mac build hunting for it.
-      toast(fsaSupported()
+      // The file-picker button only exists where a linking backend does —
+      // don't send other builds hunting for it.
+      toast(fileLinkingSupported()
         ? 'Encrypted — now choose the save file in your OneDrive folder (Settings)'
         : 'Encrypted — this computer keeps its own encrypted copy');
       ctx.rerender();
@@ -136,6 +155,11 @@ export function renderSettings(el, ctx) {
   const syncLock = el.querySelector('[data-act="sync-lock"]');
   if (syncLock) syncLock.addEventListener('click', () => lockDevice());
 
+  const exportShared = el.querySelector('[data-act="export-shared"]');
+  if (exportShared) {
+    exportShared.addEventListener('click', closeAnd(() => exportSharedSaveCopy()));
+  }
+
   const syncOff = el.querySelector('[data-act="sync-off"]');
   if (syncOff) {
     syncOff.addEventListener('click', closeAnd(async () => {
@@ -146,7 +170,14 @@ export function renderSettings(el, ctx) {
           from OneDrive.`,
         confirmText: 'Turn off', danger: true, requireText: 'plain',
       });
-      if (ok) { await disableEncryption(); toast('Encryption off — local plain storage'); ctx.rerender(); }
+      if (!ok) return;
+      try {
+        await disableEncryption();
+        toast('Encryption off — local plain storage');
+      } catch {
+        toast('Couldn’t disconnect the shared file — nothing was changed', 'warn');
+      }
+      ctx.rerender();
     }));
   }
 
@@ -215,7 +246,8 @@ async function handleExistingFile(envelope, handle, ctx) {
     } else {
       session.handle = null;
       session.filePermission = false;
-      await kvDel('fileHandle');
+      // Best-effort here: the poisoned fileRev already guards writes.
+      await unlinkSaveFile().catch(() => {});
       toast('That file was sealed with different passphrases — it can’t be linked to this practice', 'warn');
     }
     return;
