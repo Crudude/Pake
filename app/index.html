@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<script>
+// The desktop shell (Pake/Tauri) serves this page at http://tauri.localhost/app —
+// no trailing slash — so every relative URL below would resolve against the
+// origin root and 404 (no CSS, no JS). One hop to /app/ re-anchors them.
+// No-op in the browser, where the app is served at / or /index.html.
+if (!/(\/|\.html)$/.test(location.pathname)) {
+  location.replace(location.pathname + '/' + location.search + location.hash);
+}
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cadence</title>
+<link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand-nav">
+    <div class="brand">
+      <svg class="brand-mark" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="10.5" fill="none" stroke="currentColor" stroke-width="1.4"/>
+        <line x1="12" y1="2.5" x2="12" y2="21.5" stroke="currentColor" stroke-width="1.2" stroke-dasharray="1.6 2.6" stroke-linecap="round"/>
+      </svg>
+      <span class="brand-name">Cadence</span>
+    </div>
+    <nav class="nav-tabs" id="navTabs" aria-label="Pages">
+      <a href="#/" data-page="schedule">Schedule</a>
+      <a href="#/booking" data-page="booking">Booking</a>
+      <a href="#/formulation" data-page="formulation">Formulation</a>
+      <a href="#/tasks" data-page="tasks">Tasks</a>
+      <a href="#/reading" data-page="reading">Reading</a>
+      <a href="#/training" data-page="training">Training</a>
+    </nav>
+  </div>
+
+  <div class="week-heading">
+    <h1 id="weekHeading">&nbsp;</h1>
+    <p id="openCounts" class="open-counts"></p>
+  </div>
+
+  <div class="topbar-actions">
+    <span id="backupStatus" class="backup-status"></span>
+    <button id="btnExport" class="btn">Export backup</button>
+    <button id="btnRestore" class="btn">Restore</button>
+    <input type="file" id="fileRestore" accept=".json,application/json" hidden>
+    <button id="btnSettings" class="icon-btn" aria-label="Settings" aria-haspopup="true">
+      <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 6.5A3.5 3.5 0 1 0 10 13.5 3.5 3.5 0 0 0 10 6.5Zm7-.3-1.7-.4a5.6 5.6 0 0 0-.5-1.1l.9-1.5-1.9-1.9-1.5.9a5.6 5.6 0 0 0-1.1-.5L10.8 0H8.2l-.4 1.7a5.6 5.6 0 0 0-1.1.5l-1.5-.9-1.9 1.9.9 1.5a5.6 5.6 0 0 0-.5 1.1L2 6.2 2 8.8l1.7.4c.1.4.3.8.5 1.1l-.9 1.5 1.9 1.9 1.5-.9c.3.2.7.4 1.1.5l.4 1.7h2.6l.4-1.7c.4-.1.8-.3 1.1-.5l1.5.9 1.9-1.9-.9-1.5c.2-.3.4-.7.5-1.1l1.7-.4V6.2Z" transform="translate(0 2)" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/></svg>
+    </button>
+  </div>
+</header>
+
+<div id="settingsPop" class="settings-pop" hidden></div>
+<div id="placementBar" class="placement-bar" hidden></div>
+
+<main class="layout" id="pageSchedule">
+  <aside class="roster" id="roster" aria-label="Clients"></aside>
+  <section class="board-wrap">
+    <div class="board-tools" id="boardTools"></div>
+    <div class="board" id="board" aria-label="Two-week schedule"></div>
+    <div class="legend" id="legend"></div>
+  </section>
+  <aside class="rail" id="rail" aria-label="Flexible and paused clients"></aside>
+</main>
+
+<main class="page" id="pageBooking" hidden></main>
+<main class="page" id="pageFormulation" hidden></main>
+<main class="page" id="pageTasks" hidden></main>
+<main class="page" id="pageReading" hidden></main>
+<main class="page" id="pageTraining" hidden></main>
+
+<div id="drawerScrim" class="drawer-scrim" hidden></div>
+<aside id="drawer" class="drawer" aria-label="Client details"></aside>
+
+<datalist id="modalityOptions">
+  <option value="CBT"></option>
+  <option value="DBT"></option>
+  <option value="EMDR"></option>
+  <option value="ACT"></option>
+  <option value="IFS"></option>
+  <option value="Family"></option>
+  <option value="Couples"></option>
+  <option value="Play therapy"></option>
+  <option value="Psychodynamic"></option>
+  <option value="Somatic"></option>
+</datalist>
+
+<div id="modalRoot"></div>
+<div id="toastRoot" class="toast-root" aria-live="polite"></div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

@@ -23,6 +23,14 @@ export function resolveIdentifier(
   explicitName: string | undefined,
   customIdentifier?: string,
 ) {
+  // Cadence fork: the bundle id is FROZEN — it keys the webview storage
+  // on macOS (see RELEASING.md in the Cadence repo; changing it orphans
+  // her data). The CI workflow has no --identifier input and workflow
+  // files can't be pushed without extra token scopes, so it is pinned
+  // here in the CLI source instead.
+  if (!customIdentifier?.trim() && explicitName === 'Cadence') {
+    customIdentifier = 'com.nevin.cadence';
+  }
   const trimmedIdentifier = customIdentifier?.trim();
   if (trimmedIdentifier) {
     if (!/^[a-zA-Z][a-zA-Z0-9.-]*[a-zA-Z0-9]$/.test(trimmedIdentifier)) {
