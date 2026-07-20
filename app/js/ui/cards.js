@@ -2,8 +2,8 @@
 // the drawer's session log. These three pages are deliberate siblings —
 // keeping the mechanics here stops them drifting apart (again).
 
-import { shortDate } from '../domain/time.js';
-import { escapeHTML } from './dialogs.js';
+import { shortDate } from "../domain/time.js";
+import { escapeHTML } from "./dialogs.js";
 
 function camel(attr) {
   return attr.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
@@ -13,7 +13,9 @@ function camel(attr) {
 // re-render wipes them, applied after so expansion state survives.
 export function openDetailsSet(el, attr) {
   return new Set(
-    [...el.querySelectorAll(`details[data-${attr}][open]`)].map((d) => d.dataset[camel(attr)]),
+    [...el.querySelectorAll(`details[data-${attr}][open]`)].map(
+      (d) => d.dataset[camel(attr)],
+    ),
   );
 }
 
@@ -22,17 +24,23 @@ export function openDetailsSet(el, attr) {
 export function logListHTML(items, removeAttr) {
   return `
     <div class="log-list">
-      ${items.map((u, idx) => `
+      ${items
+        .map(
+          (u, idx) => `
         <div class="log-item">
           <span class="when">${shortDate(u.date)}</span>
           <span class="what">${escapeHTML(u.text)}</span>
           <button class="x" data-${removeAttr}="${idx}" aria-label="Remove note">&#10005;</button>
-        </div>`).join('')}
+        </div>`,
+        )
+        .join("")}
     </div>`;
 }
 
 export function wireIndexedRemove(card, removeAttr, onRemove) {
   for (const rm of card.querySelectorAll(`[data-${removeAttr}]`)) {
-    rm.addEventListener('click', () => onRemove(Number(rm.dataset[camel(removeAttr)])));
+    rm.addEventListener("click", () =>
+      onRemove(Number(rm.dataset[camel(removeAttr)])),
+    );
   }
 }

@@ -20,9 +20,8 @@ use tauri::{Assets, Wry};
 // next to the passphrases. Changing this key strands every installed
 // shell on its built-in version.
 const UPDATE_PUBKEY: [u8; 32] = [
-    0x64, 0x8c, 0x6e, 0xd4, 0x7e, 0x8d, 0x75, 0x5e, 0x36, 0x3c, 0xf6, 0x7e, 0x73, 0x0e, 0x79,
-    0x09, 0xb2, 0x90, 0x18, 0xd5, 0x3a, 0x5a, 0x74, 0x2d, 0xbc, 0x5a, 0x45, 0x7a, 0xe0, 0x5c,
-    0x15, 0x6c,
+    0x64, 0x8c, 0x6e, 0xd4, 0x7e, 0x8d, 0x75, 0x5e, 0x36, 0x3c, 0xf6, 0x7e, 0x73, 0x0e, 0x79, 0x09,
+    0xb2, 0x90, 0x18, 0xd5, 0x3a, 0x5a, 0x74, 0x2d, 0xbc, 0x5a, 0x45, 0x7a, 0xe0, 0x5c, 0x15, 0x6c,
 ];
 
 // Pake ≥3.15 serves a local app at the ORIGIN ROOT (dist/index.html →
@@ -42,7 +41,9 @@ pub fn parse_version(v: &str) -> Option<(u64, u64, u64)> {
 }
 
 fn bundle_version(file_name: &str) -> Option<(u64, u64, u64, String)> {
-    let rest = file_name.strip_prefix("cadence-app-")?.strip_suffix(".zip")?;
+    let rest = file_name
+        .strip_prefix("cadence-app-")?
+        .strip_suffix(".zip")?;
     let (a, b, c) = parse_version(rest)?;
     Some((a, b, c, rest.to_string()))
 }
@@ -54,7 +55,8 @@ fn verify_bundle(zip_bytes: &[u8], sig_bytes: &[u8]) -> bool {
     let Ok(sig_arr) = <[u8; 64]>::try_from(sig_bytes) else {
         return false;
     };
-    key.verify(zip_bytes, &Signature::from_bytes(&sig_arr)).is_ok()
+    key.verify(zip_bytes, &Signature::from_bytes(&sig_arr))
+        .is_ok()
 }
 
 /// Highest-version bundle in `dir` that is newer than `builtin` and
@@ -75,7 +77,9 @@ fn best_valid_bundle(dir: &Path, builtin: (u64, u64, u64)) -> Option<(Vec<u8>, S
     candidates.sort_by(|x, y| y.0.cmp(&x.0));
 
     for (_, ver, zip_path) in candidates {
-        let Ok(meta) = std::fs::metadata(&zip_path) else { continue };
+        let Ok(meta) = std::fs::metadata(&zip_path) else {
+            continue;
+        };
         if meta.len() > MAX_BUNDLE_BYTES {
             eprintln!("[cadence] update {ver}: bundle too large, skipping");
             continue;
@@ -83,7 +87,10 @@ fn best_valid_bundle(dir: &Path, builtin: (u64, u64, u64)) -> Option<(Vec<u8>, S
         let sig_path = PathBuf::from(format!("{}.sig", zip_path.display()));
         // An Ed25519 signature is exactly 64 bytes — check BEFORE
         // reading so a planted multi-GB .sig can't stall the launch.
-        if std::fs::metadata(&sig_path).map(|m| m.len() != 64).unwrap_or(true) {
+        if std::fs::metadata(&sig_path)
+            .map(|m| m.len() != 64)
+            .unwrap_or(true)
+        {
             continue;
         }
         let (Ok(zip_bytes), Ok(sig_bytes)) = (std::fs::read(&zip_path), std::fs::read(&sig_path))
@@ -111,9 +118,9 @@ fn extract_zip(zip_bytes: &[u8], dest: &Path) -> Result<(), String> {
         }
         let rel = Path::new(&raw_name);
         let unsafe_entry = rel.is_absolute()
-            || rel.components().any(|c| {
-                !matches!(c, std::path::Component::Normal(_))
-            });
+            || rel
+                .components()
+                .any(|c| !matches!(c, std::path::Component::Normal(_)));
         if unsafe_entry {
             return Err(format!("unsafe zip entry: {raw_name}"));
         }
@@ -154,7 +161,8 @@ pub fn prepare(identifier: &str, builtin_version: &str) -> Option<(PathBuf, Stri
         .unwrap_or(false);
     if !cached {
         let _ = std::fs::remove_dir_all(&dest);
-        if let Err(e) = std::fs::create_dir_all(&dest).map_err(|e| e.to_string())
+        if let Err(e) = std::fs::create_dir_all(&dest)
+            .map_err(|e| e.to_string())
             .and_then(|_| extract_zip(&zip_bytes, &dest))
         {
             eprintln!("[cadence] update {version}: extraction failed ({e}), running built-in app");
@@ -189,7 +197,10 @@ pub fn load_files(dir: &Path) -> Result<HashMap<String, Vec<u8>>, String> {
     let mut files = HashMap::new();
     let mut stack = vec![dir.to_path_buf()];
     while let Some(current) = stack.pop() {
-        for entry in std::fs::read_dir(&current).map_err(|e| e.to_string())?.flatten() {
+        for entry in std::fs::read_dir(&current)
+            .map_err(|e| e.to_string())?
+            .flatten()
+        {
             let path = entry.path();
             if path.is_dir() {
                 stack.push(path);

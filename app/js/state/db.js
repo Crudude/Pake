@@ -4,8 +4,8 @@
 // close — WKWebView persists storage asynchronously and close-time
 // writes are a known loss vector (tauri#4455).
 
-const DB_NAME = 'cadence-planner';
-const STORE = 'snapshots';
+const DB_NAME = "cadence-planner";
+const STORE = "snapshots";
 const KEEP = 20;
 
 let dbPromise = null;
@@ -15,14 +15,19 @@ function open() {
     dbPromise = new Promise((resolve, reject) => {
       const req = indexedDB.open(DB_NAME, 1);
       req.onupgradeneeded = () => {
-        req.result.createObjectStore(STORE, { keyPath: 'seq', autoIncrement: true });
+        req.result.createObjectStore(STORE, {
+          keyPath: "seq",
+          autoIncrement: true,
+        });
       };
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error);
     });
     // A failed open must not poison the session — clear the cache so the
     // next save/load attempt retries.
-    dbPromise.catch(() => { dbPromise = null; });
+    dbPromise.catch(() => {
+      dbPromise = null;
+    });
   }
   return dbPromise;
 }
@@ -30,7 +35,7 @@ function open() {
 export async function saveSnapshot(envelope) {
   const db = await open();
   return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE, 'readwrite');
+    const tx = db.transaction(STORE, "readwrite");
     const store = tx.objectStore(STORE);
     store.add(structuredClone(envelope));
     const countReq = store.count();
@@ -66,24 +71,40 @@ export async function loadLatest(validate) {
   }
   return new Promise((resolve) => {
     let settled = false;
-    const done = (v) => { if (!settled) { settled = true; resolve(v); } };
+    const done = (v) => {
+      if (!settled) {
+        settled = true;
+        resolve(v);
+      }
+    };
     let tx;
     try {
-      tx = db.transaction(STORE, 'readonly');
+      tx = db.transaction(STORE, "readonly");
     } catch {
       done({ error: true, envelope: null });
       return;
     }
-    const req = tx.objectStore(STORE).openCursor(null, 'prev');
+    const req = tx.objectStore(STORE).openCursor(null, "prev");
     req.onsuccess = (e) => {
       const cursor = e.target.result;
-      if (!cursor) { done({ error: false, envelope: null }); return; }
+      if (!cursor) {
+        done({ error: false, envelope: null });
+        return;
+      }
       let ok = false;
-      try { ok = validate(cursor.value); } catch { ok = false; }
+      try {
+        ok = validate(cursor.value);
+      } catch {
+        ok = false;
+      }
       if (ok) {
         done({ error: false, envelope: cursor.value });
       } else {
-        try { cursor.continue(); } catch { done({ error: true, envelope: null }); }
+        try {
+          cursor.continue();
+        } catch {
+          done({ error: true, envelope: null });
+        }
       }
     };
     req.onerror = () => done({ error: true, envelope: null });
@@ -97,11 +118,11 @@ export async function loadLatest(validate) {
 export async function deletePlainSnapshots() {
   const db = await open();
   return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE, 'readwrite');
+    const tx = db.transaction(STORE, "readwrite");
     tx.objectStore(STORE).openCursor().onsuccess = (e) => {
       const cursor = e.target.result;
       if (cursor) {
-        if (cursor.value && cursor.value.format === 'plain') cursor.delete();
+        if (cursor.value && cursor.value.format === "plain") cursor.delete();
         cursor.continue();
       }
     };
@@ -112,5 +133,9 @@ export async function deletePlainSnapshots() {
 }
 
 export function requestPersistence() {
-  try { navigator.storage?.persist?.(); } catch { /* best effort */ }
+  try {
+    navigator.storage?.persist?.();
+  } catch {
+    /* best effort */
+  }
 }

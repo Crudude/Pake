@@ -10,18 +10,21 @@
 // - It only catches names it knows: family members or third parties
 //   typed into notes still need the initials-only habit.
 
-import { getState } from './state/store.js';
+import { getState } from "./state/store.js";
 
 function escapeRegExp(s) {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 // Unicode-aware word boundary: \b is ASCII-only and never matches
 // around CJK or at the end of "José". Sub-3-letter parts match
 // case-sensitively so a client part "An" can't rewrite every "an".
 function nameRegExp(needle) {
-  const flags = needle.length >= 3 ? 'giu' : 'gu';
-  return new RegExp(`(?<![\\p{L}\\p{N}])${escapeRegExp(needle)}(?![\\p{L}\\p{N}])`, flags);
+  const flags = needle.length >= 3 ? "giu" : "gu";
+  return new RegExp(
+    `(?<![\\p{L}\\p{N}])${escapeRegExp(needle)}(?![\\p{L}\\p{N}])`,
+    flags,
+  );
 }
 
 export function anonymizeWithReport(text) {
@@ -44,15 +47,16 @@ export function anonymizeWithReport(text) {
     out = out.replace(nameRegExp(needle), code);
   }
 
-  out = out.replace(/[\w.+-]+@[\w-]+\.[\w.-]+/g, '[email]');
-  out = out.replace(/\+?\d[\d\s().-]{8,}\d/g, '[phone]');
+  out = out.replace(/[\w.+-]+@[\w-]+\.[\w.-]+/g, "[email]");
+  out = out.replace(/\+?\d[\d\s().-]{8,}\d/g, "[phone]");
 
   const unscrubbed = [];
   for (const c of state.clients) {
     if (c.jane?.name || !c.name) continue;
     // Must appear in the ORIGINAL text too — an inserted display code
     // that happens to spell another client's name is not a leak.
-    if (nameRegExp(c.name).test(src) && nameRegExp(c.name).test(out)) unscrubbed.push(c.name);
+    if (nameRegExp(c.name).test(src) && nameRegExp(c.name).test(out))
+      unscrubbed.push(c.name);
   }
   return { text: out, unscrubbed };
 }

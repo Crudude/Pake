@@ -4,19 +4,24 @@
 // async API first, textarea+execCommand fallback, and the success toast
 // only ever AFTER a copy actually happened.
 
-import { toast } from './toast.js';
+import { toast } from "./toast.js";
 
-export function copyToClipboard(text, okMsg = 'Copied') {
-  const done = (ok) => toast(ok ? okMsg : 'Couldn’t reach the clipboard', ok ? undefined : 'warn');
+export function copyToClipboard(text, okMsg = "Copied") {
+  const done = (ok) =>
+    toast(ok ? okMsg : "Couldn’t reach the clipboard", ok ? undefined : "warn");
   const legacy = () => {
-    const ta = document.createElement('textarea');
+    const ta = document.createElement("textarea");
     ta.value = text;
-    ta.style.position = 'fixed';
-    ta.style.opacity = '0';
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
     document.body.append(ta);
     ta.select();
     let ok = false;
-    try { ok = document.execCommand('copy'); } catch { /* fall through */ }
+    try {
+      ok = document.execCommand("copy");
+    } catch {
+      /* fall through */
+    }
     ta.remove();
     done(ok);
   };

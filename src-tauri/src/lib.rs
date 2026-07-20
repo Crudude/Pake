@@ -206,7 +206,9 @@ pub fn run_app() {
                 eprintln!("[cadence] serving app update {version}");
                 cadence_update_active = Some(version);
             }
-            Err(e) => eprintln!("[cadence] update {version} unreadable ({e}), running built-in app"),
+            Err(e) => {
+                eprintln!("[cadence] update {version} unreadable ({e}), running built-in app")
+            }
         }
     }
 

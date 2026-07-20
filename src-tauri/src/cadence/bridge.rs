@@ -50,7 +50,9 @@ pub fn cadence_shell_info(state: State<'_, CadenceState>) -> ShellInfo {
 
 #[tauri::command(async)]
 pub fn cadence_linked_save(state: State<'_, CadenceState>) -> Option<SaveTarget> {
-    linked_path(&state).map(|p| SaveTarget { name: file_name(&p) })
+    linked_path(&state).map(|p| SaveTarget {
+        name: file_name(&p),
+    })
 }
 
 /// Native save dialog on the MAIN thread (WKWebView/NSPanel requirement);
@@ -92,7 +94,9 @@ pub async fn cadence_pick_save_file<R: Runtime>(
 /// "nothing to read", matching the FSA backend's semantics).
 #[tauri::command(async)]
 pub fn cadence_read_save(state: State<'_, CadenceState>) -> Result<Option<String>, String> {
-    let Some(path) = linked_path(&state) else { return Ok(None) };
+    let Some(path) = linked_path(&state) else {
+        return Ok(None);
+    };
     match std::fs::read_to_string(&path) {
         Ok(text) => Ok(Some(text)),
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
@@ -105,10 +109,7 @@ pub fn cadence_read_save(state: State<'_, CadenceState>) -> Result<Option<String
 /// with REPLACE_EXISTING on Windows, rename(2) on macOS), so at no
 /// instant does the shared file not exist and a crash can't tear it.
 #[tauri::command(async)]
-pub fn cadence_write_save(
-    state: State<'_, CadenceState>,
-    contents: String,
-) -> Result<(), String> {
+pub fn cadence_write_save(state: State<'_, CadenceState>, contents: String) -> Result<(), String> {
     use std::io::Write;
     let Some(path) = linked_path(&state) else {
         return Err("no save file linked".into());
@@ -119,7 +120,8 @@ pub fn cadence_write_save(
     let tmp = path.with_extension("json.tmp-cadence");
     {
         let mut file = std::fs::File::create(&tmp).map_err(|e| e.to_string())?;
-        file.write_all(contents.as_bytes()).map_err(|e| e.to_string())?;
+        file.write_all(contents.as_bytes())
+            .map_err(|e| e.to_string())?;
         // Flushed to disk BEFORE the rename: power loss must never be
         // able to land an empty or torn replacement.
         file.sync_all().map_err(|e| e.to_string())?;

@@ -7,9 +7,11 @@ export const drag = { active: null };
 export function startDrag(payload, dataTransfer) {
   drag.active = payload;
   try {
-    dataTransfer.setData('application/x-cadence', JSON.stringify(payload));
-    dataTransfer.effectAllowed = 'move';
-  } catch { /* older webviews */ }
+    dataTransfer.setData("application/x-cadence", JSON.stringify(payload));
+    dataTransfer.effectAllowed = "move";
+  } catch {
+    /* older webviews */
+  }
 }
 
 export function endDrag() {
@@ -18,8 +20,10 @@ export function endDrag() {
 
 export function readDrop(e) {
   try {
-    const raw = e.dataTransfer.getData('application/x-cadence');
+    const raw = e.dataTransfer.getData("application/x-cadence");
     if (raw) return JSON.parse(raw);
-  } catch { /* fall through */ }
+  } catch {
+    /* fall through */
+  }
   return drag.active;
 }

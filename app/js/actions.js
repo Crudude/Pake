@@ -6,13 +6,24 @@
 // have an extra parent session etc. Each grid assignment references
 // one via sessionId.
 
-import { getState, mutate, uid } from './state/store.js';
-import { deriveCode, uniqueCode } from './domain/names.js';
+import { getState, mutate, uid } from "./state/store.js";
+import { deriveCode, uniqueCode } from "./domain/names.js";
 import {
-  canPlace, conflictsFor, assignmentsOf, blockConflictsFor, fitsDay, overlaps,
-} from './domain/schedule.js';
-import { DAYS, DAY_END, SESSION_DURATIONS, todayISO, fmtTime } from './domain/time.js';
-import { toast } from './ui/toast.js';
+  canPlace,
+  conflictsFor,
+  assignmentsOf,
+  blockConflictsFor,
+  fitsDay,
+  overlaps,
+} from "./domain/schedule.js";
+import {
+  DAYS,
+  DAY_END,
+  SESSION_DURATIONS,
+  todayISO,
+  fmtTime,
+} from "./domain/time.js";
+import { toast } from "./ui/toast.js";
 
 function client(id) {
   return getState().clients.find((c) => c.id === id) || null;
@@ -26,27 +37,41 @@ export function sessionOf(c, sessionId) {
   return c.sessions.find((t) => t.id === sessionId) || c.sessions[0];
 }
 
-export function newSessionType(label = 'Session') {
-  return { id: uid(), label, location: '', modality: '', duration: 60, jane: null };
+export function newSessionType(label = "Session") {
+  return {
+    id: uid(),
+    label,
+    location: "",
+    modality: "",
+    duration: 60,
+    jane: null,
+  };
 }
 
 // The one place the client shape is defined. Every creation path (add
 // dialog, Jane import, sample data) builds on this so a new field can't
 // be forgotten in one of them.
-export function newClient({ name, type, autoName = true, jane = null, sessions, ...extra }) {
+export function newClient({
+  name,
+  type,
+  autoName = true,
+  jane = null,
+  sessions,
+  ...extra
+}) {
   return {
     id: uid(),
     name,
     autoName,
     type,
-    status: 'active',
+    status: "active",
     paused: null,
     closed: null,
     formulation: null,
     sessions: sessions || [newSessionType()],
     jane,
-    schedulingNotes: '',
-    casePlan: { workingOn: '', nextSession: '', longTermGoals: '', log: [] },
+    schedulingNotes: "",
+    casePlan: { workingOn: "", nextSession: "", longTermGoals: "", log: [] },
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     ...extra,
@@ -64,29 +89,40 @@ function fittingDuration(preferred, start) {
 // What would placing/moving produce at this target? Used by drop
 // validation and by the actual drop.
 function blockPlacementOk(state, cand, ignoreId = null) {
-  return fitsDay(cand)
-    && !conflictsFor(state, cand).length
-    && !blockConflictsFor(state, cand, ignoreId).length;
+  return (
+    fitsDay(cand) &&
+    !conflictsFor(state, cand).length &&
+    !blockConflictsFor(state, cand, ignoreId).length
+  );
 }
 
 export function candidateFor(payload, day, parityIdx, start) {
   const state = getState();
-  if (payload.kind === 'block') {
+  if (payload.kind === "block") {
     const b = state.blocks.find((x) => x.id === payload.id);
     if (!b) return null;
-    return { block: b, cand: { ...b, day, start, parity: 'both' }, ignoreId: b.id };
+    return {
+      block: b,
+      cand: { ...b, day, start, parity: "both" },
+      ignoreId: b.id,
+    };
   }
-  if (payload.kind === 'assignment') {
+  if (payload.kind === "assignment") {
     const a = state.assignments.find((x) => x.id === payload.id);
     if (!a) return null;
     return {
-      cand: { ...a, day, start, parity: a.parity === 'both' ? 'both' : parityIdx },
+      cand: {
+        ...a,
+        day,
+        start,
+        parity: a.parity === "both" ? "both" : parityIdx,
+      },
       ignoreId: a.id,
     };
   }
   const c = client(payload.id);
   if (!c) return null;
-  if (c.type === 'monthly' || c.type === 'self') return { flexible: true };
+  if (c.type === "monthly" || c.type === "self") return { flexible: true };
   const sess = primarySession(c);
   const duration = fittingDuration(sess.duration, start);
   if (!duration) return null;
@@ -97,7 +133,7 @@ export function candidateFor(payload, day, parityIdx, start) {
       day,
       start,
       duration,
-      parity: c.type === 'weekly' ? 'both' : parityIdx,
+      parity: c.type === "weekly" ? "both" : parityIdx,
       sessionId: sess.id,
     },
     ignoreId: null,
@@ -107,18 +143,27 @@ export function candidateFor(payload, day, parityIdx, start) {
 export function dropAllowed(payload, day, parityIdx, start) {
   const target = candidateFor(payload, day, parityIdx, start);
   if (!target || target.flexible) return false;
-  if (target.block) return blockPlacementOk(getState(), target.cand, target.ignoreId);
+  if (target.block)
+    return blockPlacementOk(getState(), target.cand, target.ignoreId);
   return canPlace(getState(), target.cand, target.ignoreId).ok;
 }
 
 /* ---------- blocked time (breaks, meetings) ---------- */
 
-export function addBlock(day, start, { label = 'Break', duration = 30 } = {}) {
-  const cand = { day, start, duration, parity: 'both' };
-  if (!fitsDay(cand)) { toast('Past closing time', 'warn'); return null; }
-  if (!blockPlacementOk(getState(), cand)) { toast('Someone already sits there', 'warn'); return null; }
+export function addBlock(day, start, { label = "Break", duration = 30 } = {}) {
+  const cand = { day, start, duration, parity: "both" };
+  if (!fitsDay(cand)) {
+    toast("Past closing time", "warn");
+    return null;
+  }
+  if (!blockPlacementOk(getState(), cand)) {
+    toast("Someone already sits there", "warn");
+    return null;
+  }
   const id = uid();
-  mutate((s) => { s.blocks.push({ id, day, start, duration, label }); });
+  mutate((s) => {
+    s.blocks.push({ id, day, start, duration, label });
+  });
   return id;
 }
 
@@ -126,9 +171,17 @@ export function moveBlock(blockId, day, start) {
   const state = getState();
   const b = state.blocks.find((x) => x.id === blockId);
   if (!b) return false;
-  const cand = { ...b, day, start, parity: 'both' };
-  if (!blockPlacementOk(state, cand, b.id)) { toast('Someone already sits there', 'warn'); return false; }
-  mutate((s) => { Object.assign(s.blocks.find((x) => x.id === blockId), { day, start }); });
+  const cand = { ...b, day, start, parity: "both" };
+  if (!blockPlacementOk(state, cand, b.id)) {
+    toast("Someone already sits there", "warn");
+    return false;
+  }
+  mutate((s) => {
+    Object.assign(
+      s.blocks.find((x) => x.id === blockId),
+      { day, start },
+    );
+  });
   return true;
 }
 
@@ -137,57 +190,71 @@ export function updateBlock(blockId, { label, duration }) {
   const b = state.blocks.find((x) => x.id === blockId);
   if (!b) return;
   if (duration && duration !== b.duration) {
-    const cand = { ...b, duration, parity: 'both' };
+    const cand = { ...b, duration, parity: "both" };
     if (!blockPlacementOk(state, cand, b.id)) {
-      toast('That length runs into someone', 'warn');
+      toast("That length runs into someone", "warn");
       duration = b.duration;
     }
   }
   mutate((s) => {
     const target = s.blocks.find((x) => x.id === blockId);
-    if (label !== undefined) target.label = label || 'Break';
+    if (label !== undefined) target.label = label || "Break";
     if (duration) target.duration = duration;
   });
 }
 
 export function removeBlock(blockId) {
-  mutate((s) => { s.blocks = s.blocks.filter((x) => x.id !== blockId); });
+  mutate((s) => {
+    s.blocks = s.blocks.filter((x) => x.id !== blockId);
+  });
 }
 
 export function placeClient(clientId, day, parityIdx, start) {
   const c = client(clientId);
   if (!c) return false;
-  if (c.type === 'monthly' || c.type === 'self') {
+  if (c.type === "monthly" || c.type === "self") {
     toast(`${c.name} is flexible — the tray is home, not the grid`);
     return false;
   }
   const sess = primarySession(c);
   const duration = fittingDuration(sess.duration, start);
-  if (!duration) { toast('Past closing time', 'warn'); return false; }
+  if (!duration) {
+    toast("Past closing time", "warn");
+    return false;
+  }
   const cand = {
     id: uid(),
     clientId,
     day,
     start,
     duration,
-    parity: c.type === 'weekly' ? 'both' : parityIdx,
+    parity: c.type === "weekly" ? "both" : parityIdx,
     sessionId: sess.id,
   };
   const check = canPlace(getState(), cand);
-  if (!check.ok) { toast(check.reason, 'warn'); return false; }
+  if (!check.ok) {
+    toast(check.reason, "warn");
+    return false;
+  }
   let displaced = 0;
   mutate((s) => {
     s.assignments.push(cand);
-    if (c.status === 'paused') displaced = unpauseInPlace(s, c.id, cand.id);
+    if (c.status === "paused") displaced = unpauseInPlace(s, c.id, cand.id);
   });
   // A silent downgrade near closing time would book her short without
   // anyone noticing — say so.
   if (duration !== sess.duration) {
-    toast(`Placed as ${duration} min — ${sess.duration} min doesn’t fit before close`, 'warn');
+    toast(
+      `Placed as ${duration} min — ${sess.duration} min doesn’t fit before close`,
+      "warn",
+    );
   }
   if (displaced) {
-    toast(`${c.name} is back — ${displaced} old slot${displaced === 1 ? ' was' : 's were'} `
-      + 'taken meanwhile and removed', 'warn');
+    toast(
+      `${c.name} is back — ${displaced} old slot${displaced === 1 ? " was" : "s were"} ` +
+        "taken meanwhile and removed",
+      "warn",
+    );
   }
   return true;
 }
@@ -196,9 +263,17 @@ export function moveAssignment(assignmentId, day, parityIdx, start) {
   const state = getState();
   const a = state.assignments.find((x) => x.id === assignmentId);
   if (!a) return false;
-  const cand = { ...a, day, start, parity: a.parity === 'both' ? 'both' : parityIdx };
+  const cand = {
+    ...a,
+    day,
+    start,
+    parity: a.parity === "both" ? "both" : parityIdx,
+  };
   const check = canPlace(state, cand, a.id);
-  if (!check.ok) { toast(check.reason, 'warn'); return false; }
+  if (!check.ok) {
+    toast(check.reason, "warn");
+    return false;
+  }
   mutate((s) => {
     const target = s.assignments.find((x) => x.id === assignmentId);
     Object.assign(target, { day, start, parity: cand.parity });
@@ -219,9 +294,10 @@ export function cycleDuration(assignmentId) {
   const a = state.assignments.find((x) => x.id === assignmentId);
   if (!a) return;
   const i = SESSION_DURATIONS.indexOf(a.duration);
-  const next = i < 0
-    ? [60]
-    : [...SESSION_DURATIONS.slice(i + 1), ...SESSION_DURATIONS.slice(0, i)];
+  const next =
+    i < 0
+      ? [60]
+      : [...SESSION_DURATIONS.slice(i + 1), ...SESSION_DURATIONS.slice(0, i)];
   for (const duration of next) {
     const cand = { ...a, duration };
     if (canPlace(state, cand, a.id).ok) {
@@ -231,7 +307,7 @@ export function cycleDuration(assignmentId) {
       return;
     }
   }
-  toast('No other length fits there', 'warn');
+  toast("No other length fits there", "warn");
 }
 
 export function setAssignmentSession(assignmentId, sessionId) {
@@ -243,14 +319,14 @@ export function setAssignmentSession(assignmentId, sessionId) {
 
 export function pauseClient(clientId, details = {}) {
   const c = client(clientId);
-  if (!c || c.status === 'paused') return;
+  if (!c || c.status === "paused") return;
   mutate((s) => {
     const target = s.clients.find((x) => x.id === clientId);
-    target.status = 'paused';
+    target.status = "paused";
     target.paused = {
       since: details.since || todayISO(),
-      expectedReturn: details.expectedReturn || '',
-      note: details.note || '',
+      expectedReturn: details.expectedReturn || "",
+      note: details.note || "",
     };
     target.updatedAt = new Date().toISOString();
   });
@@ -263,14 +339,18 @@ export function pauseClient(clientId, details = {}) {
 // removed. keepId protects the just-placed assignment itself.
 function unpauseInPlace(s, clientId, keepId = null) {
   const target = s.clients.find((x) => x.id === clientId);
-  target.status = 'active';
+  target.status = "active";
   target.paused = null;
   target.updatedAt = new Date().toISOString();
-  const mine = s.assignments.filter((a) => a.clientId === clientId && a.id !== keepId);
+  const mine = s.assignments.filter(
+    (a) => a.clientId === clientId && a.id !== keepId,
+  );
   // Blocked time placed over her remembered slot displaces it the same
   // way another client's session does.
-  const displaced = mine.filter((a) =>
-    conflictsFor(s, a, a.id).length > 0 || blockConflictsFor(s, a).length > 0);
+  const displaced = mine.filter(
+    (a) =>
+      conflictsFor(s, a, a.id).length > 0 || blockConflictsFor(s, a).length > 0,
+  );
   if (displaced.length) {
     s.assignments = s.assignments.filter((a) => !displaced.includes(a));
   }
@@ -281,26 +361,28 @@ function unpauseInPlace(s, clientId, keepId = null) {
 // she moves to the Closed files fold, one click from reopening.
 export function closeClientFile(clientId) {
   const c = client(clientId);
-  if (!c || c.status === 'closed') return;
+  if (!c || c.status === "closed") return;
   let freed = 0;
   mutate((s) => {
     const target = s.clients.find((x) => x.id === clientId);
     freed = s.assignments.filter((a) => a.clientId === clientId).length;
     s.assignments = s.assignments.filter((a) => a.clientId !== clientId);
-    target.status = 'closed';
+    target.status = "closed";
     target.paused = null;
     target.closed = { since: todayISO() };
     target.updatedAt = new Date().toISOString();
   });
-  toast(`${c.name}’s file closed${freed ? ` — ${freed} slot${freed === 1 ? '' : 's'} freed` : ''} · notes kept`);
+  toast(
+    `${c.name}’s file closed${freed ? ` — ${freed} slot${freed === 1 ? "" : "s"} freed` : ""} · notes kept`,
+  );
 }
 
 export function reopenClient(clientId) {
   const c = client(clientId);
-  if (!c || c.status !== 'closed') return;
+  if (!c || c.status !== "closed") return;
   mutate((s) => {
     const target = s.clients.find((x) => x.id === clientId);
-    target.status = 'active';
+    target.status = "active";
     target.closed = null;
     target.updatedAt = new Date().toISOString();
   });
@@ -311,10 +393,14 @@ export function resumeClient(clientId) {
   const c = client(clientId);
   if (!c) return;
   let displaced = 0;
-  mutate((s) => { displaced = unpauseInPlace(s, clientId); });
-  toast(displaced
-    ? `${c.name} is back — ${displaced} old slot${displaced === 1 ? ' was' : 's were'} taken meanwhile, re-place them`
-    : `${c.name} is back on the schedule`);
+  mutate((s) => {
+    displaced = unpauseInPlace(s, clientId);
+  });
+  toast(
+    displaced
+      ? `${c.name} is back — ${displaced} old slot${displaced === 1 ? " was" : "s were"} taken meanwhile, re-place them`
+      : `${c.name} is back on the schedule`,
+  );
 }
 
 // Changing type reshapes existing fixed slots: weekly -> biweekly keeps
@@ -332,20 +418,21 @@ export function changeClientType(clientId, type) {
     target.type = type;
     target.updatedAt = new Date().toISOString();
     const mine = () => s.assignments.filter((a) => a.clientId === clientId);
-    if (type === 'monthly' || type === 'self') {
+    if (type === "monthly" || type === "self") {
       dropped = mine().length;
       s.assignments = s.assignments.filter((a) => a.clientId !== clientId);
-    } else if (type === 'weekly') {
+    } else if (type === "weekly") {
       for (const a of [...mine()]) {
-        if (a.parity === 'both') continue;
-        const cand = { ...a, parity: 'both' };
+        if (a.parity === "both") continue;
+        const cand = { ...a, parity: "both" };
         const clashes = conflictsFor(s, cand, a.id);
         // conflictsFor only sees ACTIVE clients — while she's paused her
         // own sibling slot is invisible to it, so check that directly or
         // a paused biweekly→weekly change would create two overlapping
         // 'both' records.
-        const own = s.assignments.filter((x) =>
-          x.id !== a.id && x.clientId === clientId && overlaps(x, cand));
+        const own = s.assignments.filter(
+          (x) => x.id !== a.id && x.clientId === clientId && overlaps(x, cand),
+        );
         if (clashes.some((o) => o.clientId !== clientId)) {
           s.assignments = s.assignments.filter((x) => x.id !== a.id);
           dropped += 1;
@@ -355,24 +442,35 @@ export function changeClientType(clientId, type) {
           s.assignments = s.assignments.filter((x) => x.id !== a.id);
           merged += 1;
         } else {
-          a.parity = 'both';
+          a.parity = "both";
           widened = true;
         }
       }
-    } else if (type === 'biweekly') {
+    } else if (type === "biweekly") {
       for (const a of mine()) {
-        if (a.parity === 'both') { a.parity = 0; widened = true; }
+        if (a.parity === "both") {
+          a.parity = 0;
+          widened = true;
+        }
       }
     }
   });
-  if (type === 'monthly' || type === 'self') {
-    if (dropped) toast(`${c.name} is flexible now — ${dropped} fixed slot${dropped === 1 ? '' : 's'} cleared`);
-  } else if (type === 'weekly' && dropped) {
-    toast(`${c.name} is weekly now — ${dropped} slot${dropped === 1 ? ' was' : 's were'} taken in the other week and dropped`, 'warn');
-  } else if (type === 'weekly' && merged) {
+  if (type === "monthly" || type === "self") {
+    if (dropped)
+      toast(
+        `${c.name} is flexible now — ${dropped} fixed slot${dropped === 1 ? "" : "s"} cleared`,
+      );
+  } else if (type === "weekly" && dropped) {
+    toast(
+      `${c.name} is weekly now — ${dropped} slot${dropped === 1 ? " was" : "s were"} taken in the other week and dropped`,
+      "warn",
+    );
+  } else if (type === "weekly" && merged) {
     toast(`${c.name} is weekly now — the matching slots merged into one`);
-  } else if (type === 'biweekly' && widened) {
-    toast(`${c.name}’s slots now sit in one week — drag across the seam to adjust`);
+  } else if (type === "biweekly" && widened) {
+    toast(
+      `${c.name}’s slots now sit in one week — drag across the seam to adjust`,
+    );
   }
 }
 
@@ -387,14 +485,16 @@ export function addClient({ name, type }) {
     type,
     jane: isFullName ? { id: null, name: name.trim() } : null,
   });
-  mutate((s) => { s.clients.push(c); });
+  mutate((s) => {
+    s.clients.push(c);
+  });
   return c.id;
 }
 
 export function addSessionType(clientId) {
   mutate((s) => {
     const target = s.clients.find((x) => x.id === clientId);
-    if (target) target.sessions.push(newSessionType(''));
+    if (target) target.sessions.push(newSessionType(""));
   });
 }
 
@@ -410,15 +510,15 @@ export function removeSessionType(clientId, sessionId) {
   const c = client(clientId);
   if (!c) return;
   if (c.sessions.length <= 1) {
-    toast('Every client needs at least one session type');
+    toast("Every client needs at least one session type");
     return;
   }
   let moved = 0;
-  let fallbackLabel = '';
+  let fallbackLabel = "";
   mutate((s) => {
     const target = s.clients.find((x) => x.id === clientId);
     target.sessions = target.sessions.filter((t) => t.id !== sessionId);
-    fallbackLabel = target.sessions[0].label || 'the main session';
+    fallbackLabel = target.sessions[0].label || "the main session";
     for (const a of s.assignments) {
       if (a.clientId === clientId && a.sessionId === sessionId) {
         a.sessionId = target.sessions[0].id;
@@ -426,7 +526,10 @@ export function removeSessionType(clientId, sessionId) {
       }
     }
   });
-  if (moved) toast(`${moved} slot${moved === 1 ? '' : 's'} switched to ${fallbackLabel}`);
+  if (moved)
+    toast(
+      `${moved} slot${moved === 1 ? "" : "s"} switched to ${fallbackLabel}`,
+    );
 }
 
 export function deleteClient(clientId) {
@@ -438,8 +541,8 @@ export function deleteClient(clientId) {
 
 export function summarizeSlots(state, clientId) {
   const list = assignmentsOf(state, clientId);
-  if (!list.length) return '';
+  if (!list.length) return "";
   const first = list[0];
-  const short = DAYS.find((d) => d.dow === first.day)?.short || '?';
-  return `${short} ${fmtTime(first.start)}${list.length > 1 ? ` +${list.length - 1}` : ''}`;
+  const short = DAYS.find((d) => d.dow === first.day)?.short || "?";
+  return `${short} ${fmtTime(first.start)}${list.length > 1 ? ` +${list.length - 1}` : ""}`;
 }

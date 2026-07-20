@@ -3,21 +3,38 @@
 // marks each session booked or skipped. Statuses persist per week, so
 // half-finished booking sessions pick up where they left off.
 
-import { getState, mutate } from '../state/store.js';
+import { getState, mutate } from "../state/store.js";
 import {
-  DAYS, DAY_START, DAY_END, weekIndexOf, parityLabel, parityNames,
-  hasDefaultParityNames, fmtTimeRange, dateForWeek, fmtDayDate, columnOrder,
-} from '../domain/time.js';
-import { sessionOf } from '../actions.js';
-import { escapeHTML } from './dialogs.js';
-import { copyToClipboard } from './clipboard.js';
-import { toast } from './toast.js';
+  DAYS,
+  DAY_START,
+  DAY_END,
+  weekIndexOf,
+  parityLabel,
+  parityNames,
+  hasDefaultParityNames,
+  fmtTimeRange,
+  dateForWeek,
+  fmtDayDate,
+  columnOrder,
+} from "../domain/time.js";
+import { sessionOf } from "../actions.js";
+import { escapeHTML } from "./dialogs.js";
+import { copyToClipboard } from "./clipboard.js";
+import { toast } from "./toast.js";
 
 let weekOffset = 1; // she usually preps the coming week
 
-const LOC_LABEL = { 'in-person': 'in person', virtual: 'virtual', mixed: 'virtual/in person' };
-const STATUS_NEXT = { pending: 'booked', booked: 'skipped', skipped: 'pending' };
-const STATUS_LABEL = { pending: 'to book', booked: 'booked', skipped: 'skip' };
+const LOC_LABEL = {
+  "in-person": "in person",
+  virtual: "virtual",
+  mixed: "virtual/in person",
+};
+const STATUS_NEXT = {
+  pending: "booked",
+  booked: "skipped",
+  skipped: "pending",
+};
+const STATUS_LABEL = { pending: "to book", booked: "booked", skipped: "skip" };
 
 // Structured plan for one real week — also the surface the future
 // automated booking runs on (window.cadence.getWeekPlan()).
@@ -25,11 +42,16 @@ export function getWeekPlan(weekIndex = weekIndexOf() + weekOffset) {
   const state = getState();
   const parity = ((weekIndex % 2) + 2) % 2;
   const saved = state.weekPlans[weekIndex] || {};
-  const active = new Map(state.clients.filter((c) => c.status === 'active').map((c) => [c.id, c]));
+  const active = new Map(
+    state.clients.filter((c) => c.status === "active").map((c) => [c.id, c]),
+  );
 
   const planned = state.assignments
-    .filter((a) => active.has(a.clientId) && (a.parity === 'both' || a.parity === parity))
-    .sort((x, y) => (x.day - y.day) || (x.start - y.start))
+    .filter(
+      (a) =>
+        active.has(a.clientId) && (a.parity === "both" || a.parity === parity),
+    )
+    .sort((x, y) => x.day - y.day || x.start - y.start)
     .map((a) => {
       const c = active.get(a.clientId);
       const sess = sessionOf(c, a.sessionId);
@@ -41,24 +63,27 @@ export function getWeekPlan(weekIndex = weekIndexOf() + weekOffset) {
         start: a.start,
         duration: a.duration,
         code: c.name,
-        janeName: c.jane?.name || '',
+        janeName: c.jane?.name || "",
         janeId: c.jane?.id || null,
-        session: sess.label || 'Session',
+        session: sess.label || "Session",
         location: sess.location,
         modality: sess.modality,
-        status: saved.statuses?.[a.id] || 'pending',
+        status: saved.statuses?.[a.id] || "pending",
       };
     });
 
   const flexible = state.clients
-    .filter((c) => c.status === 'active' && (c.type === 'monthly' || c.type === 'self'))
+    .filter(
+      (c) =>
+        c.status === "active" && (c.type === "monthly" || c.type === "self"),
+    )
     .map((c) => ({
       clientId: c.id,
       code: c.name,
-      janeName: c.jane?.name || '',
+      janeName: c.jane?.name || "",
       type: c.type,
       notes: c.schedulingNotes,
-      status: saved.flex?.[c.clientId] || saved.flex?.[c.id] || 'pending',
+      status: saved.flex?.[c.clientId] || saved.flex?.[c.id] || "pending",
     }));
 
   return { weekIndex, parity, planned, flexible };
@@ -68,11 +93,10 @@ function setStatus(weekIndex, kind, id, status) {
   mutate((s) => {
     const wp = s.weekPlans[weekIndex] || (s.weekPlans[weekIndex] = {});
     const bucket = wp[kind] || (wp[kind] = {});
-    if (status === 'pending') delete bucket[id];
+    if (status === "pending") delete bucket[id];
     else bucket[id] = status;
   });
 }
-
 
 export function renderBooking(el, ctx) {
   const state = ctx.state;
@@ -81,13 +105,19 @@ export function renderBooking(el, ctx) {
   const monday = dateForWeek(wi, 1);
   const parityRaw = parityLabel(plan.parity, state.settings);
   const parityName = hasDefaultParityNames(state.settings)
-    ? `${parityRaw.toLowerCase()} week` : parityRaw;
-  const whenNote = weekOffset === 0 ? 'this week'
-    : weekOffset === 1 ? 'next week'
-      : weekOffset > 1 ? `in ${weekOffset} weeks` : `${-weekOffset} week${weekOffset === -1 ? '' : 's'} ago`;
+    ? `${parityRaw.toLowerCase()} week`
+    : parityRaw;
+  const whenNote =
+    weekOffset === 0
+      ? "this week"
+      : weekOffset === 1
+        ? "next week"
+        : weekOffset > 1
+          ? `in ${weekOffset} weeks`
+          : `${-weekOffset} week${weekOffset === -1 ? "" : "s"} ago`;
 
-  const pending = plan.planned.filter((p) => p.status === 'pending');
-  const booked = plan.planned.filter((p) => p.status === 'booked');
+  const pending = plan.planned.filter((p) => p.status === "pending");
+  const booked = plan.planned.filter((p) => p.status === "booked");
 
   const byDay = new Map();
   for (const p of plan.planned) {
@@ -109,34 +139,52 @@ export function renderBooking(el, ctx) {
         <div class="wk-actions">
           <span class="wk-counts">${plan.planned.length} planned &middot; ${booked.length} booked &middot; ${pending.length} to go</span>
           <button class="btn" data-act="copy">Copy to-book list</button>
-          <button class="btn" data-act="all-booked" ${pending.length ? '' : 'disabled'}>Mark all booked</button>
+          <button class="btn" data-act="all-booked" ${pending.length ? "" : "disabled"}>Mark all booked</button>
         </div>
       </div>
 
-      ${[...byDay.entries()].map(([day, items]) => `
-        <h3 class="group-title">${DAYS.find((d) => d.dow === day)?.name || ''} ${items[0].dateLabel}</h3>
+      ${
+        [...byDay.entries()]
+          .map(
+            ([day, items]) => `
+        <h3 class="group-title">${DAYS.find((d) => d.dow === day)?.name || ""} ${items[0].dateLabel}</h3>
         <div class="stack">
-          ${items.map((p) => `
+          ${items
+            .map(
+              (p) => `
             <div class="wk-row" data-aid="${p.assignmentId}">
               <span class="wk-time">${p.time}</span>
               <span class="wk-code">${escapeHTML(p.code)}</span>
-              <span class="wk-detail">${escapeHTML(p.session)}${p.modality ? ` &middot; ${escapeHTML(p.modality)}` : ''}${p.location ? ` &middot; ${LOC_LABEL[p.location] || ''}` : ''} &middot; ${p.duration} min</span>
+              <span class="wk-detail">${escapeHTML(p.session)}${p.modality ? ` &middot; ${escapeHTML(p.modality)}` : ""}${p.location ? ` &middot; ${LOC_LABEL[p.location] || ""}` : ""} &middot; ${p.duration} min</span>
               <button class="status-chip status-chip--${p.status}" data-status="${p.status}" data-act="status" title="Click to cycle">${STATUS_LABEL[p.status]}</button>
-            </div>`).join('')}
-        </div>`).join('')
-      || '<p class="page-empty">Nothing on the template for this week yet.</p>'}
+            </div>`,
+            )
+            .join("")}
+        </div>`,
+          )
+          .join("") ||
+        '<p class="page-empty">Nothing on the template for this week yet.</p>'
+      }
 
-      ${plan.flexible.length ? `
+      ${
+        plan.flexible.length
+          ? `
         <h3 class="group-title">Flexible — book if due</h3>
         <div class="stack">
-          ${plan.flexible.map((f) => `
+          ${plan.flexible
+            .map(
+              (f) => `
             <div class="wk-row" data-fid="${f.clientId}">
               <span class="wk-time">&mdash;</span>
               <span class="wk-code">${escapeHTML(f.code)}</span>
-              <span class="wk-detail">${f.type === 'monthly' ? 'monthly' : 'self-booking'}${f.notes ? ` &middot; ${escapeHTML(f.notes.slice(0, 70))}` : ''}</span>
+              <span class="wk-detail">${f.type === "monthly" ? "monthly" : "self-booking"}${f.notes ? ` &middot; ${escapeHTML(f.notes.slice(0, 70))}` : ""}</span>
               <button class="status-chip status-chip--${f.status}" data-status="${f.status}" data-act="status" title="Click to cycle">${STATUS_LABEL[f.status]}</button>
-            </div>`).join('')}
-        </div>` : ''}
+            </div>`,
+            )
+            .join("")}
+        </div>`
+          : ""
+      }
 
       <details class="done-fold">
         <summary>Utilization &middot; template hours per day</summary>
@@ -144,48 +192,65 @@ export function renderBooking(el, ctx) {
       </details>
     </div>`;
 
-  el.querySelector('[data-act="prev"]').addEventListener('click', () => { weekOffset -= 1; renderBooking(el, ctx); });
-  el.querySelector('[data-act="next"]').addEventListener('click', () => { weekOffset += 1; renderBooking(el, ctx); });
+  el.querySelector('[data-act="prev"]').addEventListener("click", () => {
+    weekOffset -= 1;
+    renderBooking(el, ctx);
+  });
+  el.querySelector('[data-act="next"]').addEventListener("click", () => {
+    weekOffset += 1;
+    renderBooking(el, ctx);
+  });
 
-  el.querySelector('[data-act="copy"]').addEventListener('click', () => {
-    const lines = pending.map((p) =>
-      `${DAYS.find((d) => d.dow === p.day)?.short} ${p.dateLabel} ${p.time} — ${p.janeName || p.code} — ${p.session}${p.modality ? ` (${p.modality})` : ''}${p.location ? `, ${LOC_LABEL[p.location]}` : ''}, ${p.duration} min`);
-    if (!lines.length) { toast('Nothing left to book this week'); return; }
+  el.querySelector('[data-act="copy"]').addEventListener("click", () => {
+    const lines = pending.map(
+      (p) =>
+        `${DAYS.find((d) => d.dow === p.day)?.short} ${p.dateLabel} ${p.time} — ${p.janeName || p.code} — ${p.session}${p.modality ? ` (${p.modality})` : ""}${p.location ? `, ${LOC_LABEL[p.location]}` : ""}, ${p.duration} min`,
+    );
+    if (!lines.length) {
+      toast("Nothing left to book this week");
+      return;
+    }
     copyToClipboard(
-      `Bookings — week of ${fmtDayDate(monday)} (${parityName})\n${lines.join('\n')}`,
-      'Copied — paste it wherever it helps',
+      `Bookings — week of ${fmtDayDate(monday)} (${parityName})\n${lines.join("\n")}`,
+      "Copied — paste it wherever it helps",
     );
   });
 
-  el.querySelector('[data-act="all-booked"]').addEventListener('click', () => {
+  el.querySelector('[data-act="all-booked"]').addEventListener("click", () => {
     mutate((s) => {
       const wp = s.weekPlans[wi] || (s.weekPlans[wi] = {});
       const bucket = wp.statuses || (wp.statuses = {});
-      for (const p of plan.planned) if ((bucket[p.assignmentId] || 'pending') === 'pending') bucket[p.assignmentId] = 'booked';
+      for (const p of plan.planned)
+        if ((bucket[p.assignmentId] || "pending") === "pending")
+          bucket[p.assignmentId] = "booked";
     });
-    toast('Whole week marked booked');
+    toast("Whole week marked booked");
   });
 
-  for (const row of el.querySelectorAll('.wk-row')) {
+  for (const row of el.querySelectorAll(".wk-row")) {
     const btn = row.querySelector('[data-act="status"]');
-    btn.addEventListener('click', () => {
+    btn.addEventListener("click", () => {
       const isFlex = !!row.dataset.fid;
       const id = row.dataset.aid || row.dataset.fid;
       // Status rides in data-status — class names are styling, not state.
-      const next = STATUS_NEXT[btn.dataset.status] || 'booked';
-      setStatus(wi, isFlex ? 'flex' : 'statuses', id, next);
+      const next = STATUS_NEXT[btn.dataset.status] || "booked";
+      setStatus(wi, isFlex ? "flex" : "statuses", id, next);
     });
   }
 }
 
 function utilizationTable(state) {
-  const active = new Set(state.clients.filter((c) => c.status === 'active').map((c) => c.id));
+  const active = new Set(
+    state.clients.filter((c) => c.status === "active").map((c) => c.id),
+  );
   const hours = {}; // day -> [evenMin, oddMin]
   for (const d of DAYS) hours[d.dow] = [0, 0];
   for (const a of state.assignments) {
     if (!active.has(a.clientId)) continue;
-    if (a.parity === 'both') { hours[a.day][0] += a.duration; hours[a.day][1] += a.duration; }
-    else hours[a.day][a.parity] += a.duration;
+    if (a.parity === "both") {
+      hours[a.day][0] += a.duration;
+      hours[a.day][1] += a.duration;
+    } else hours[a.day][a.parity] += a.duration;
   }
   const total = (DAY_END - DAY_START) / 60; // bookable hours per day
   const cell = (mins) => {
@@ -202,7 +267,7 @@ function utilizationTable(state) {
     <table class="util-table">
       <thead><tr><th></th><th>${escapeHTML(names[0])}</th><th>${escapeHTML(names[1])}</th></tr></thead>
       <tbody>
-        ${DAYS.map((d) => `<tr><th>${d.short}</th>${cell(hours[d.dow][order[0]])}${cell(hours[d.dow][order[1]])}</tr>`).join('')}
+        ${DAYS.map((d) => `<tr><th>${d.short}</th>${cell(hours[d.dow][order[0]])}${cell(hours[d.dow][order[1]])}</tr>`).join("")}
       </tbody>
     </table>`;
 }

@@ -28,7 +28,11 @@ pub struct CadenceState {
 /// way tauri's app_config_dir does, but WITHOUT an AppHandle: the update
 /// check runs before the app is built.
 pub fn shell_config_path(identifier: &str) -> Option<PathBuf> {
-    Some(dirs::config_dir()?.join(identifier).join("cadence-shell.json"))
+    Some(
+        dirs::config_dir()?
+            .join(identifier)
+            .join("cadence-shell.json"),
+    )
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Default)]

@@ -7,15 +7,15 @@
 // the therapist already calls her weeks.
 
 export const DAYS = [
-  { dow: 2, name: 'Tuesday', short: 'Tue' },
-  { dow: 3, name: 'Wednesday', short: 'Wed' },
-  { dow: 4, name: 'Thursday', short: 'Thu' },
-  { dow: 5, name: 'Friday', short: 'Fri' },
-  { dow: 6, name: 'Saturday', short: 'Sat' },
+  { dow: 2, name: "Tuesday", short: "Tue" },
+  { dow: 3, name: "Wednesday", short: "Wed" },
+  { dow: 4, name: "Thursday", short: "Thu" },
+  { dow: 5, name: "Friday", short: "Fri" },
+  { dow: 6, name: "Saturday", short: "Sat" },
 ];
 
-export const DAY_START = 9 * 60;   // 9:00
-export const DAY_END = 19 * 60;    // 19:00
+export const DAY_START = 9 * 60; // 9:00
+export const DAY_END = 19 * 60; // 19:00
 export const STEP = 30;
 
 // The only allowed lengths. Validators (normalizeData) coerce anything
@@ -55,7 +55,7 @@ export function mondayOf(date = new Date()) {
   return noon;
 }
 
-export const DEFAULT_PARITY_NAMES = ['Even', 'Odd'];
+export const DEFAULT_PARITY_NAMES = ["Even", "Odd"];
 
 // The two alternating weeks can be called anything (settings.parityNames,
 // synced in the save file). Slot 0 is the LEFT column's name; the
@@ -64,8 +64,8 @@ export const DEFAULT_PARITY_NAMES = ['Even', 'Odd'];
 export function parityNames(settings) {
   const custom = settings.parityNames || {};
   return [
-    String(custom.even ?? '').trim() || DEFAULT_PARITY_NAMES[0],
-    String(custom.odd ?? '').trim() || DEFAULT_PARITY_NAMES[1],
+    String(custom.even ?? "").trim() || DEFAULT_PARITY_NAMES[0],
+    String(custom.odd ?? "").trim() || DEFAULT_PARITY_NAMES[1],
   ];
 }
 
@@ -94,8 +94,20 @@ export function columnOrder(settings) {
   return settings.parityLabelFlipped ? [1, 0] : [0, 1];
 }
 
-const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December'];
+const MONTHS = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
 
 export function weekHeadingParts(date, settings) {
   const monday = mondayOf(date);
@@ -104,7 +116,9 @@ export function weekHeadingParts(date, settings) {
     weekOf: `${monday.getDate()} ${MONTHS[monday.getMonth()]}`,
     parityName: label,
     // "· odd week" for the defaults, "· Week A" verbatim for custom names.
-    parityHeading: hasDefaultParityNames(settings) ? `${label.toLowerCase()} week` : label,
+    parityHeading: hasDefaultParityNames(settings)
+      ? `${label.toLowerCase()} week`
+      : label,
   };
 }
 
@@ -112,7 +126,7 @@ export function fmtTime(minutes) {
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
   const h12 = ((h + 11) % 12) + 1;
-  return m === 0 ? `${h12}` : `${h12}:${String(m).padStart(2, '0')}`;
+  return m === 0 ? `${h12}` : `${h12}:${String(m).padStart(2, "0")}`;
 }
 
 export function fmtTimeRange(start, duration) {
@@ -122,8 +136,8 @@ export function fmtTimeRange(start, duration) {
 // Hour labels down the gutter: "9 am", "10", "11", "12 pm", "1", ...
 export function hourLabel(minutes) {
   const h = Math.floor(minutes / 60);
-  if (h === 9) return '<b>9</b>&hairsp;am';
-  if (h === 12) return '<b>12</b>&hairsp;pm';
+  if (h === 9) return "<b>9</b>&hairsp;am";
+  if (h === 12) return "<b>12</b>&hairsp;pm";
   return `<b>${((h + 11) % 12) + 1}</b>`;
 }
 
@@ -140,7 +154,7 @@ export function fmtDayDate(date) {
 
 export function todayISO() {
   const d = new Date();
-  const p = (n) => String(n).padStart(2, '0');
+  const p = (n) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 

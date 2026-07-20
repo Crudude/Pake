@@ -3,8 +3,8 @@
 // device id. All of it stays in THIS device's IndexedDB — never in the
 // synced file itself.
 
-const DB_NAME = 'cadence-device';
-const STORE = 'kv';
+const DB_NAME = "cadence-device";
+const STORE = "kv";
 
 let dbp = null;
 function open() {
@@ -15,7 +15,9 @@ function open() {
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error);
     });
-    dbp.catch(() => { dbp = null; });
+    dbp.catch(() => {
+      dbp = null;
+    });
   }
   return dbp;
 }
@@ -28,13 +30,15 @@ export async function kvGet(key) {
       req.onsuccess = () => resolve(req.result ?? null);
       req.onerror = () => resolve(null);
     });
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
 
 export async function kvSet(key, value) {
   const db = await open();
   return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE, 'readwrite');
+    const tx = db.transaction(STORE, "readwrite");
     tx.objectStore(STORE).put(value, key);
     tx.oncomplete = resolve;
     tx.onerror = () => reject(tx.error);
@@ -42,11 +46,15 @@ export async function kvSet(key, value) {
 }
 
 export async function kvDel(key) {
-  try { await kvSet(key, null); } catch { /* best effort */ }
+  try {
+    await kvSet(key, null);
+  } catch {
+    /* best effort */
+  }
 }
 
 export function fsaSupported() {
-  return typeof window.showSaveFilePicker === 'function';
+  return typeof window.showSaveFilePicker === "function";
 }
 
 /* ---------- Cadence shell bridge (macOS desktop build) ----------
@@ -76,9 +84,11 @@ function isShellHandle(handle) {
 export async function initSyncBackend() {
   if (!window.__TAURI__?.core?.invoke) return;
   try {
-    const info = await shellInvoke('cadence_shell_info');
+    const info = await shellInvoke("cadence_shell_info");
     shellBridge = !!info?.shell;
-  } catch { /* stock shell without the bridge */ }
+  } catch {
+    /* stock shell without the bridge */
+  }
 }
 
 // Gates the "Choose save file…" UI: true wherever SOME backend exists.
@@ -88,62 +98,76 @@ export function fileLinkingSupported() {
 
 export async function pickSaveFile() {
   if (shellBridge) {
-    const target = await shellInvoke('cadence_pick_save_file');
+    const target = await shellInvoke("cadence_pick_save_file");
     // Same contract as the FSA picker: dismissal throws, callers catch.
-    if (!target) throw new Error('picker dismissed');
+    if (!target) throw new Error("picker dismissed");
     return { shell: true, name: target.name };
   }
   if (fsaSupported()) {
     const handle = await window.showSaveFilePicker({
-      suggestedName: 'cadence-shared-save.json',
-      types: [{ description: 'Cadence shared save', accept: { 'application/json': ['.json'] } }],
+      suggestedName: "cadence-shared-save.json",
+      types: [
+        {
+          description: "Cadence shared save",
+          accept: { "application/json": [".json"] },
+        },
+      ],
     });
-    await kvSet('fileHandle', handle);
+    await kvSet("fileHandle", handle);
     return handle;
   }
-  throw new Error('file linking is not supported on this build');
+  throw new Error("file linking is not supported on this build");
 }
 
 export async function getSavedHandle() {
   if (shellBridge) {
-    const target = await shellInvoke('cadence_linked_save').catch(() => null);
+    const target = await shellInvoke("cadence_linked_save").catch(() => null);
     return target ? { shell: true, name: target.name } : null;
   }
-  return kvGet('fileHandle');
+  return kvGet("fileHandle");
 }
 
 // Forget the linked file on whichever backend holds it. A shell-side
 // failure PROPAGATES — callers like disableEncryption must abort rather
 // than report success while the stale link survives.
 export async function unlinkSaveFile() {
-  if (shellBridge) await shellInvoke('cadence_unlink_save');
-  await kvDel('fileHandle');
+  if (shellBridge) await shellInvoke("cadence_unlink_save");
+  await kvDel("fileHandle");
 }
 
 export async function ensurePermission(handle, interactive = false) {
   if (isShellHandle(handle)) return true; // shell paths need no grant
   try {
-    if (await handle.queryPermission({ mode: 'readwrite' }) === 'granted') return true;
+    if ((await handle.queryPermission({ mode: "readwrite" })) === "granted")
+      return true;
     if (!interactive) return false;
-    return await handle.requestPermission({ mode: 'readwrite' }) === 'granted';
-  } catch { return false; }
+    return (
+      (await handle.requestPermission({ mode: "readwrite" })) === "granted"
+    );
+  } catch {
+    return false;
+  }
 }
 
 export async function readFileEnvelope(handle) {
   try {
     if (isShellHandle(handle)) {
-      const text = await shellInvoke('cadence_read_save');
+      const text = await shellInvoke("cadence_read_save");
       return text?.trim() ? JSON.parse(text) : null;
     }
     const file = await handle.getFile();
     const text = await file.text();
     return text.trim() ? JSON.parse(text) : null;
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
 
 export async function writeFileEnvelope(handle, envelope) {
   if (isShellHandle(handle)) {
-    await shellInvoke('cadence_write_save', { contents: JSON.stringify(envelope) });
+    await shellInvoke("cadence_write_save", {
+      contents: JSON.stringify(envelope),
+    });
     return;
   }
   const writable = await handle.createWritable();
@@ -152,10 +176,10 @@ export async function writeFileEnvelope(handle, envelope) {
 }
 
 export async function deviceId() {
-  let id = await kvGet('deviceId');
+  let id = await kvGet("deviceId");
   if (!id) {
     id = Math.random().toString(36).slice(2, 10);
-    await kvSet('deviceId', id);
+    await kvSet("deviceId", id);
   }
   return id;
 }
